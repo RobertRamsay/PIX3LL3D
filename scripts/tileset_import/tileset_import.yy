@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"tileset_import",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"tileset_import",
+  "parent":{
+    "name":"Functions",
+    "path":"folders/Functions.yy",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}

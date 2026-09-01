@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"scene_save",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"scene_save",
+  "parent":{
+    "name":"Functions",
+    "path":"folders/Functions.yy",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}

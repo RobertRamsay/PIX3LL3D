@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"UNDO_system",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"UNDO_system",
+  "parent":{
+    "name":"Functions",
+    "path":"folders/Functions.yy",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}
