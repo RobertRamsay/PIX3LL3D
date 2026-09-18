@@ -1,0 +1,957 @@
+From cea4a37e4136f778ed7b2a5ae05aea05b1e1b955 Mon Sep 17 00:00:00 2001
+From: Claude <claude@local>
+Date: Fri, 18 Sep 2026 09:51:10 +0000
+Subject: [PATCH] Top menu bar replaces the shortcuts panel
+
+---
+ PIX3LL3D_V008.yyp                   |   1 +
+ objects/obj_editor/Create_0.gml     | 103 +++++++-
+ objects/obj_editor/Draw_0.gml       |   2 +-
+ objects/obj_editor/Draw_64.gml      | 111 +-------
+ objects/obj_editor/Step_0.gml       | 105 +++++---
+ scripts/MENU_system/MENU_system.gml | 387 ++++++++++++++++++++++++++++
+ scripts/MENU_system/MENU_system.yy  |  13 +
+ 7 files changed, 573 insertions(+), 149 deletions(-)
+ create mode 100644 scripts/MENU_system/MENU_system.gml
+ create mode 100644 scripts/MENU_system/MENU_system.yy
+
+diff --git a/PIX3LL3D_V008.yyp b/PIX3LL3D_V008.yyp
+index 6aba624..65f6844 100644
+--- a/PIX3LL3D_V008.yyp
++++ b/PIX3LL3D_V008.yyp
+@@ -33,6 +33,7 @@
+     {"id":{"name":"scene_save","path":"scripts/scene_save/scene_save.yy",},},
+     {"id":{"name":"tileset_import","path":"scripts/tileset_import/tileset_import.yy",},},
+     {"id":{"name":"UNDO_system","path":"scripts/UNDO_system/UNDO_system.yy",},},
++    {"id":{"name":"MENU_system","path":"scripts/MENU_system/MENU_system.yy",},},
+     {"id":{"name":"spr_tile","path":"sprites/spr_tile/spr_tile.yy",},},
+   ],
+   "resourceType":"GMProject",
+diff --git a/objects/obj_editor/Create_0.gml b/objects/obj_editor/Create_0.gml
+index f988e98..aa7137e 100644
+--- a/objects/obj_editor/Create_0.gml
++++ b/objects/obj_editor/Create_0.gml
+@@ -102,4 +102,105 @@ palette_y = 0;
+ // --- PLANE OFFSETS ---
+ plane_offset_XY = { left_right: 0, up_down: 0, depth: 0 };
+ plane_offset_XZ = { left_right: 0, up_down: 0, depth: 0 };
+-plane_offset_YZ = { left_right: 0, up_down: 0, depth: 0 };
+\ No newline at end of file
++plane_offset_YZ = { left_right: 0, up_down: 0, depth: 0 };
++// --- MENU BAR (replaces the old shortcuts panel; see MENU_system) ---
++menu_bar_h = 22;            // height of the top bar in GUI pixels
++menu_title_pad = 10;        // horizontal padding around each title
++menu_item_h = 20;           // height of a drop-down line
++menu_sep_h = 9;             // height of a separator line
++menu_item_pad = 10;         // inner padding of the drop-down
++menu_key_gap = 36;          // minimum gap between label and shortcut
++menu_check_w = 18;          // space reserved for the tick box
++menu_mode = "3d";           // "3d" or "pe" (which editor the bar is showing)
++menu_open = -1;             // index into menu_vis of the open menu (-1 = closed)
++menu_title_hover = -1;
++menu_item_hover = -1;
++menu_vis = [];              // indices of menu_defs visible in this mode
++menu_title_x = [];
++menu_title_w = [];
++menu_drop_items = [];       // visible items of the open menu
++menu_drop_iy = [];
++menu_drop_ih = [];
++menu_drop_x = 0;
++menu_drop_y = 0;
++menu_drop_w = 0;
++menu_drop_h = 0;
++menu_action = "";           // action id chosen this frame ("" = none)
++menu_esc_consumed = false;  // Esc closed a menu this frame (don't quit)
++menu_click_consumed = false;
++menu_blocks_mouse = false;  // true when the menu owns the mouse this frame
++menu_col_bar = make_color_rgb(30, 32, 40);
++menu_col_panel = make_color_rgb(38, 40, 50);
++menu_col_line = make_color_rgb(80, 84, 100);
++menu_col_hover = make_color_rgb(58, 62, 78);
++menu_col_accent = make_color_rgb(60, 105, 200);
++
++menu_defs = [
++    {
++        title: "File", mode: "all",
++        items: [
++            { label: "Save scene",       key: "Ctrl+S",       act: "scene_save",    mode: "3d" },
++            { label: "Save scene as...", key: "Ctrl+Shift+S", act: "scene_save_as", mode: "3d" },
++            { label: "Load scene...",    key: "Ctrl+L",       act: "scene_load",    mode: "3d" },
++            { label: "-",                key: "",             act: "",              mode: "3d" },
++            { label: "Export OBJ...",    key: "Alt+Shift+S",  act: "export_obj",    mode: "3d" },
++            { label: "-",                key: "",             act: "",              mode: "3d" },
++            { label: "Restart",          key: "Enter",        act: "restart",       mode: "3d" },
++            { label: "Quit",             key: "Esc",          act: "quit",          mode: "3d" }
++        ]
++    },
++    {
++        title: "Edit", mode: "all",
++        items: [
++            { label: "Undo",                key: "Ctrl+Z", act: "undo",   mode: "all" },
++            { label: "Redo",                key: "Ctrl+Y", act: "redo",   mode: "all" },
++            { label: "-",                   key: "",       act: "",       mode: "3d" },
++            { label: "Rotate brush",        key: "R",      act: "rotate", mode: "3d" },
++            { label: "Flip brush H",        key: "X",      act: "flip_x", mode: "3d" },
++            { label: "Flip brush V",        key: "Y",      act: "flip_y", mode: "3d" }
++        ]
++    },
++    {
++        title: "View", mode: "all",
++        items: [
++            { label: "Reset view",       key: "Home", act: "reset_view", mode: "3d" },
++            { label: "-",                key: "",     act: "",           mode: "3d" },
++            { label: "Grid",             key: "G",    act: "grid",       mode: "3d" },
++            { label: "Texture filter",   key: "T",    act: "tex_filter", mode: "3d" },
++            { label: "Backface culling", key: "B",    act: "cull",       mode: "3d" }
++        ]
++    },
++    {
++        title: "Place", mode: "3d",
++        items: [
++            { label: "Depth in",       key: "Q",     act: "depth_in",    mode: "3d" },
++            { label: "Depth out",      key: "E",     act: "depth_out",   mode: "3d" },
++            { label: "Reset depth",    key: "W",     act: "depth_reset", mode: "3d" },
++            { label: "-",              key: "",      act: "",            mode: "3d" },
++            { label: "Decal forward",  key: "1",     act: "decal_fwd",   mode: "3d" },
++            { label: "Decal back",     key: "Tab+1", act: "decal_back",  mode: "3d" },
++            { label: "Reset decal",    key: "0",     act: "decal_reset", mode: "3d" }
++        ]
++    },
++    {
++        title: "Tileset", mode: "3d",
++        items: [
++            { label: "Import PNG...",     key: "Ctrl+I", act: "tiles_import",  mode: "3d" },
++            { label: "-",                 key: "",       act: "",              mode: "3d" },
++            { label: "Built-in tileset",  key: "F1",     act: "tiles_builtin", mode: "3d" },
++            { label: "Custom tileset",    key: "F2",     act: "tiles_custom",  mode: "3d" }
++        ]
++    },
++    {
++        title: "Help", mode: "all",
++        items: [
++            { label: "Place / replace", key: "LMB",          act: "", mode: "3d" },
++            { label: "Remove",          key: "RMB / Del",    act: "", mode: "3d" },
++            { label: "Tile palette",    key: "Space (hold)", act: "", mode: "3d" },
++            { label: "Pick brush",      key: "Space+drag",   act: "", mode: "3d" },
++            { label: "Pan",             key: "MMB drag",     act: "", mode: "3d" },
++            { label: "Orbit",           key: "Alt+MMB drag", act: "", mode: "3d" },
++            { label: "Zoom",            key: "Wheel",        act: "", mode: "3d" }
++        ]
++    }
++];
+diff --git a/objects/obj_editor/Draw_0.gml b/objects/obj_editor/Draw_0.gml
+index ce19cef..223d0a6 100644
+--- a/objects/obj_editor/Draw_0.gml
++++ b/objects/obj_editor/Draw_0.gml
+@@ -70,7 +70,7 @@ for (var i = 0; i < array_length(_names); i++) {
+ 
+ // --- 4. DRAW GHOST TILE (always visible, never culled; hidden while orbiting) ---
+ gpu_set_cullmode(cull_noculling);
+-if (!mouse_check_button(mb_right) && !mouse_check_button(mb_middle) && !palette_open) {
++if (!mouse_check_button(mb_right) && !mouse_check_button(mb_middle) && !palette_open && !menu_blocks_mouse) {
+     var _ghost_facing = 1;
+     if (active_plane == "XY") { _ghost_facing = (_cz < -ghost_z) ? -1 : 1; }
+     if (active_plane == "XZ") { _ghost_facing = (_cy < ghost_y) ? -1 : 1; }
+diff --git a/objects/obj_editor/Draw_64.gml b/objects/obj_editor/Draw_64.gml
+index 22e42bc..8ae87e1 100644
+--- a/objects/obj_editor/Draw_64.gml
++++ b/objects/obj_editor/Draw_64.gml
+@@ -2,7 +2,7 @@
+ 
+ gpu_set_cullmode(cull_noculling);
+ var _hud_x = 20;
+-var _hud_y = 20;
++var _hud_y = 20 + menu_bar_h; // sits below the menu bar
+ draw_set_font(-1);
+ draw_set_halign(fa_left);
+ draw_set_valign(fa_top);
+@@ -55,112 +55,6 @@ draw_text(_cx2 + _az_x + 4, _cy2 + _az_y - 8, "Z");
+ draw_set_color(c_black);
+ draw_text(_hud_x + 10, _hud_y + 85, "Plane: " + active_plane);
+ 
+-// --- SHORTCUTS LIST ---
+-gpu_set_tex_filter(true); // force smooth text regardless of the T toggle
+-var _sx = _hud_x + 4;
+-var _sy = _hud_y + 130;
+-var _col_gap = 30; // px gap between key column and description column
+-// Each entry: [key, description]
+-var _lines = [
+-
+-    ["Q/E", "Depth in/out"],
+-	["W", "Reset Depth"],
+-	["CTRL+Z", "UNDO"],
+-	["CTRL+Y", "REDO"],
+-    ["R", "Rotate tile"],
+-    ["X/Y", "Flip texture H/V"],
+-    ["1", "Decal offset fwd"],
+-    ["Tab+1", "Decal offset back"],
+-    ["0", "Reset offset"],
+-    ["SPACE", "Tile palette"],
+-    ["LMB", "Place / replace"],
+-    ["Del/Bksp/RMB", "Remove"],
+-    ["Alt+MMB drag", "Orbit"],
+-    ["MMB drag", "Pan"],
+-    ["Wheel", "Zoom"],
+-    ["T", "Texture filter"],
+-    ["B", "Backface cull"],
+-    ["G", "Toggle grid"],
+-    ["Home", "Reset view"],
+-    ["Ctrl+S", "Save"],
+-    ["Ctrl+Shift+S", "Save As"],
+-    ["Ctrl+L", "Load"],
+-    ["Alt+Shift+S", "Export OBJ"],
+-	["Escape", "QUIT"],
+-	["Enter", "RESTART"],
+-	["Ctrl+I", "Import tileset"],
+-	["F2", "Use custom set"],
+-	["F1", "Use built-in set"]
+-];
+-
+-// Measure panel size: header + lines (two columns)
+-var _pad = 8;
+-var _line_h = 16;
+-var _header_gap = 34;
+-var _content_h = _header_gap + array_length(_lines) * _line_h;
+-
+-// Widest key and widest description
+-var _max_key = 0;
+-var _max_desc = 0;
+-for (var _i = 0; _i < array_length(_lines); _i++) {
+-    var _kw = string_width(_lines[_i][0]);
+-    var _dw = string_width(_lines[_i][1]);
+-    if (_kw > _max_key)  { _max_key = _kw; }
+-    if (_dw > _max_desc) { _max_desc = _dw; }
+-}
+-
+-// Content width = key column + gap + desc column, but at least the header width
+-var _content_w = _max_key + _col_gap + _max_desc;
+-if (string_width("SHORTCUTS") > _content_w) { _content_w = string_width("SHORTCUTS"); }
+-
+-var _panel_x1 = _sx - _pad;
+-var _panel_y1 = _sy - _pad;
+-var _panel_x2 = _sx + _content_w + _pad;
+-var _panel_y2 = _sy + _content_h + _pad;
+-
+-// Right edge where descriptions align to
+-var _desc_right = _sx + _content_w;
+-
+-// 85% black panel
+-draw_set_alpha(0.85);
+-draw_set_color(c_black);
+-draw_rectangle(_panel_x1, _panel_y1, _panel_x2, _panel_y2, false);
+-draw_set_alpha(1);
+-// Outline
+-draw_set_color(c_white);
+-draw_rectangle(_panel_x1, _panel_y1, _panel_x2, _panel_y2, true);
+-
+-// Header
+-draw_set_color(c_white);
+-draw_set_halign(fa_left);
+-draw_text(_sx, _sy, "SHORTCUTS");
+-
+-// Lines: key left-justified, description right-justified, divider fills the gap per row
+-for (var _i = 0; _i < array_length(_lines); _i++) {
+-    var _ly = _sy + _header_gap + _i * _line_h;
+-
+-    // Key text
+-    draw_set_color(c_ltgray);
+-    draw_set_halign(fa_left);
+-    draw_text(_sx, _ly, _lines[_i][0]);
+-
+-    // Description text (right-justified)
+-    draw_set_halign(fa_right);
+-    draw_text(_desc_right, _ly, _lines[_i][1]);
+-
+-    // Divider: from 10px after this key to 10px before this description
+-    var _key_end  = _sx + string_width(_lines[_i][0]) + 10;
+-    var _desc_start = (_desc_right - string_width(_lines[_i][1])) - 10;
+-    if (_desc_start > _key_end) {
+-        draw_set_color(c_gray);
+-        var _mid_y = _ly + _line_h * 0.5;
+-        draw_line(_key_end, _mid_y, _desc_start, _mid_y);
+-    }
+-}
+-draw_set_halign(fa_left); // restore
+-draw_set_color(c_white);
+-gpu_set_tex_filter(tex_filter_on); // restore the user's chosen filter state
+-
+ // --- TILE PALETTE OVERLAY ---
+ if (palette_open) {
+     var _count = sprite_get_number(global.tile_sprite);
+@@ -250,3 +144,6 @@ if (palette_open) {
+ 
+     draw_set_color(c_white);
+ }
++
++// --- MENU BAR (last, so drop-downs sit over everything) ---
++menu_draw();
+diff --git a/objects/obj_editor/Step_0.gml b/objects/obj_editor/Step_0.gml
+index 90570b0..c3d6ff0 100644
+--- a/objects/obj_editor/Step_0.gml
++++ b/objects/obj_editor/Step_0.gml
+@@ -1,11 +1,14 @@
+ /// @desc STEP EVENT of obj_editor
+ 
+-if (keyboard_check_pressed(vk_escape))
++// --- MENU BAR (runs first so a menu click this frame drives the shortcuts below) ---
++menu_update();
++
++if ((keyboard_check_pressed(vk_escape) && !menu_esc_consumed) || menu_action == "quit")
+ {
+     game_end();
+ }
+ 
+-if (keyboard_check_pressed(vk_enter))
++if (keyboard_check_pressed(vk_enter) || menu_action == "restart")
+ {
+     game_restart();
+ }
+@@ -210,23 +213,23 @@ if (mouse_wheel_down()) {
+ cam_dist = clamp(cam_dist, 2, 100);
+ 
+ // --- TEXTURE FILTER TOGGLE ---
+-if (keyboard_check_pressed(ord("T"))) {
++if (keyboard_check_pressed(ord("T")) || menu_action == "tex_filter") {
+     tex_filter_on = !tex_filter_on;
+     gpu_set_tex_filter(tex_filter_on);
+ }
+ 
+ // --- BACKFACE CULLING TOGGLE ---
+-if (keyboard_check_pressed(ord("B"))) {
++if (keyboard_check_pressed(ord("B")) || menu_action == "cull") {
+     cull_on = !cull_on;
+ }
+ 
+ // --- GRID TOGGLE ---
+-if (keyboard_check_pressed(ord("G"))) {
++if (keyboard_check_pressed(ord("G")) || menu_action == "grid") {
+     grid_visible = !grid_visible;
+ }
+ 
+ // --- RESET VIEW (Home) ---
+-if (keyboard_check_pressed(vk_home)) {
++if (keyboard_check_pressed(vk_home) || menu_action == "reset_view") {
+     cam_dist = cam_dist_default;
+     cam_pitch = cam_pitch_default;
+     cam_yaw = cam_yaw_default;
+@@ -240,7 +243,7 @@ var _ctrl = keyboard_check(vk_control);
+     var _shift = keyboard_check(vk_shift);
+     var _alt = keyboard_check(vk_alt);
+ 
+-    if (_alt && _shift && keyboard_check_pressed(ord("S")))
++    if ((_alt && _shift && keyboard_check_pressed(ord("S"))) || menu_action == "export_obj")
+     {
+         var _obj_path = get_save_filename_safe("OBJ model|*.obj", "model.obj");
+         if (_obj_path != "")
+@@ -249,29 +252,40 @@ var _ctrl = keyboard_check(vk_control);
+         }
+     }
+ 
+-// Ctrl+Shift+S = Save As (new file)
++// Ctrl+Shift+S = Save As (new file), Ctrl+S = save over last known file
++var _do_save_as = false;
++var _do_save = false;
+ if (_ctrl && _shift && keyboard_check_pressed(ord("S"))) {
++    _do_save_as = true;
++}
++else if (_ctrl && keyboard_check_pressed(ord("S"))) {
++    _do_save = true;
++}
++if (menu_action == "scene_save_as") {
++    _do_save_as = true;
++}
++if (menu_action == "scene_save") {
++    _do_save = true;
++}
++// Plain save with no file yet falls back to Save As
++if (_do_save && scene_path == "") {
++    _do_save = false;
++    _do_save_as = true;
++}
++
++if (_do_save_as) {
+     var _path = get_save_filename_safe("Scene files (*.scene)|*.scene", "untitled.scene");
+     if (_path != "") {
+         scene_path = _path;
+         scene_save(scene_path);
+     }
+ }
+-// Ctrl+S = save over last known file (falls back to Save As if none)
+-else if (_ctrl && keyboard_check_pressed(ord("S"))) {
+-    if (scene_path == "") {
+-        var _path = get_save_filename_safe("Scene files (*.scene)|*.scene", "untitled.scene");
+-        if (_path != "") {
+-            scene_path = _path;
+-            scene_save(scene_path);
+-        }
+-    } else {
+-        scene_save(scene_path);
+-    }
++else if (_do_save) {
++    scene_save(scene_path);
+ }
+ 
+ // Ctrl+L = Load
+-if (_ctrl && keyboard_check_pressed(ord("L"))) {
++if ((_ctrl && keyboard_check_pressed(ord("L"))) || menu_action == "scene_load") {
+     var _path = get_open_filename_safe("Scene files (*.scene)|*.scene", "");
+     if (_path != "") {
+         if (scene_load(_path)) {
+@@ -281,7 +295,7 @@ if (_ctrl && keyboard_check_pressed(ord("L"))) {
+ }
+ 
+ // --- TILESET IMPORT (Ctrl+I) / SWITCH (F2 custom, F1 built-in) ---
+-if (_ctrl && keyboard_check_pressed(ord("I"))) {
++if ((_ctrl && keyboard_check_pressed(ord("I"))) || menu_action == "tiles_import") {
+     var _ts_path = get_open_filename_safe("PNG image (*.png)|*.png", "");
+     if (_ts_path != "") {
+         var _loaded = tileset_import(_ts_path, global.tile_cell);
+@@ -302,7 +316,7 @@ if (_ctrl && keyboard_check_pressed(ord("I"))) {
+     }
+ }
+ 
+-if (keyboard_check_pressed(vk_f2)) {
++if (keyboard_check_pressed(vk_f2) || menu_action == "tiles_custom") {
+     if (global.tile_custom >= 0 && sprite_exists(global.tile_custom)) {
+         global.tile_sprite = global.tile_custom;
+         global.tile_is_custom = true;
+@@ -314,7 +328,7 @@ if (keyboard_check_pressed(vk_f2)) {
+     }
+ }
+ 
+-if (keyboard_check_pressed(vk_f1)) {
++if (keyboard_check_pressed(vk_f1) || menu_action == "tiles_builtin") {
+     global.tile_sprite = spr_tile;
+     global.tile_is_custom = false;
+     palette_cols = palette_cols_builtin;
+@@ -327,24 +341,34 @@ if (keyboard_check_pressed(vk_f1)) {
+ 
+ 
+ // Ctrl+Z = Undo, Ctrl+Y = Redo
+-if (_ctrl && keyboard_check_pressed(ord("Z"))) {
++if ((_ctrl && keyboard_check_pressed(ord("Z"))) || menu_action == "undo") {
+     undo_perform();
+ }
+-if (_ctrl && keyboard_check_pressed(ord("Y"))) {
++if ((_ctrl && keyboard_check_pressed(ord("Y"))) || menu_action == "redo") {
+     redo_perform();
+ }
+ 
+ // --- DECAL OFFSET (1 forward, Tab+1 back, 0 reset) ---
++var _decal_step = 0;
+ if (keyboard_check_pressed(ord("1"))) {
+     if (keyboard_check(vk_tab)) {
+-        grid_offset += 1;
++        _decal_step = 1;
+     } else {
+-        grid_offset -= 1;
++        _decal_step = -1;
+     }
++}
++if (menu_action == "decal_fwd") {
++    _decal_step = -1;
++}
++if (menu_action == "decal_back") {
++    _decal_step = 1;
++}
++if (_decal_step != 0) {
++    grid_offset += _decal_step;
+     grid_offset = clamp(grid_offset, -grid_offset_max, grid_offset_max);
+ }
+ 
+-if (keyboard_check_pressed(ord("0"))) {
++if (keyboard_check_pressed(ord("0")) || menu_action == "decal_reset") {
+     grid_offset = 0;
+ }
+ // --- TILE PALETTE (hold SPACE) ---
+@@ -474,17 +498,17 @@ if (active_plane == "XZ") { _away = sign(_dir_y); }
+ if (active_plane == "YZ") { _away = sign(_dir_x); }
+ if (_away == 0) { _away = 1; }
+ 
+-if (keyboard_check_pressed(ord("Q"))) {
++if (keyboard_check_pressed(ord("Q")) || menu_action == "depth_in") {
+     _active_offset.depth += _away;
+ }
+-if (keyboard_check_pressed(ord("E"))) {
++if (keyboard_check_pressed(ord("E")) || menu_action == "depth_out") {
+     _active_offset.depth -= _away;
+ }
+ 
+ // --- W RESETS THE ACTIVE PLANE'S DEPTH OFFSET ---
+ var _no_mod = (!keyboard_check(vk_shift) && !keyboard_check(vk_alt) && !keyboard_check(vk_control));
+ 
+-if (_no_mod && keyboard_check_pressed(ord("W"))) {
++if ((_no_mod && keyboard_check_pressed(ord("W"))) || menu_action == "depth_reset") {
+     _active_offset.depth = 0;
+ }
+ 
+@@ -587,7 +611,7 @@ if (active_plane == "YZ") {
+ var _place_key = string(ghost_x) + "," + string(ghost_y) + "," + string(ghost_z) + "," + active_plane + "," + string(grid_offset);
+ 
+ // Left click places or replaces the whole brush footprint (not while palette open)
+-if (mouse_check_button_pressed(mb_left) && !palette_open) {
++if (mouse_check_button_pressed(mb_left) && !palette_open && !menu_blocks_mouse) {
+     undo_push_snapshot();
+ 
+     var _facing = 1;
+@@ -681,7 +705,7 @@ if (mouse_check_button_pressed(mb_left) && !palette_open) {
+ }
+ 
+ // Backspace, Delete, or Right Mouse removes the whole brush footprint
+-if (keyboard_check_pressed(vk_delete) || keyboard_check_pressed(vk_backspace) || mouse_check_button_pressed(mb_right)) {
++if (keyboard_check_pressed(vk_delete) || keyboard_check_pressed(vk_backspace) || (mouse_check_button_pressed(mb_right) && !menu_blocks_mouse)) {
+     undo_push_snapshot();
+ 
+     for (var _dr = 0; _dr < brush_rows; _dr++) {
+@@ -716,9 +740,10 @@ if (keyboard_check_pressed(vk_delete) || keyboard_check_pressed(vk_backspace) ||
+     }
+ }
+ 
+-// R rotates: hovered tile if one exists, otherwise the brush/preview
+-if (keyboard_check_pressed(ord("R"))) {
+-    if (variable_struct_exists(global.world_tiles, _place_key)) {
++// R rotates: hovered tile if one exists, otherwise the brush/preview.
++// From the menu it always rotates the brush (the mouse is over the menu).
++if (keyboard_check_pressed(ord("R")) || menu_action == "rotate") {
++    if (variable_struct_exists(global.world_tiles, _place_key) && menu_action != "rotate") {
+         var _hovered = variable_struct_get(global.world_tiles, _place_key);
+         _hovered.rot = (_hovered.rot + 1) mod 4;
+     } else {
+@@ -736,8 +761,8 @@ if (keyboard_check_pressed(ord("R"))) {
+ }
+ 
+ // X flips texture horizontally: hovered tile or preview
+-if (keyboard_check_pressed(ord("X"))) {
+-    if (variable_struct_exists(global.world_tiles, _place_key)) {
++if (keyboard_check_pressed(ord("X")) || menu_action == "flip_x") {
++    if (variable_struct_exists(global.world_tiles, _place_key) && menu_action != "flip_x") {
+         var _hovered = variable_struct_get(global.world_tiles, _place_key);
+         _hovered.flip_x = !_hovered.flip_x;
+     } else {
+@@ -746,8 +771,8 @@ if (keyboard_check_pressed(ord("X"))) {
+ }
+ 
+ // Y flips texture vertically: hovered tile or preview (not while Ctrl held — that's redo)
+-if (keyboard_check_pressed(ord("Y")) && !keyboard_check(vk_control)) {
+-    if (variable_struct_exists(global.world_tiles, _place_key)) {
++if ((keyboard_check_pressed(ord("Y")) && !keyboard_check(vk_control)) || menu_action == "flip_y") {
++    if (variable_struct_exists(global.world_tiles, _place_key) && menu_action != "flip_y") {
+         var _hovered = variable_struct_get(global.world_tiles, _place_key);
+         _hovered.flip_y = !_hovered.flip_y;
+     } else {
+diff --git a/scripts/MENU_system/MENU_system.gml b/scripts/MENU_system/MENU_system.gml
+new file mode 100644
+index 0000000..77ec14a
+--- /dev/null
++++ b/scripts/MENU_system/MENU_system.gml
+@@ -0,0 +1,387 @@
++/// MENU_system
++/// Top menu bar with drop-down menus. Menus and items are defined in the
++/// Create event (menu_defs). A clicked item sets menu_action for ONE frame;
++/// the Step event (and the pixel editor) test menu_action alongside the
++/// matching keyboard shortcut, so menus and keys always run the same code.
++///
++/// Item fields: label, key (shortcut text shown on the right), act (action id,
++/// "" = info-only line), mode ("all", "3d" or "pe" - which editor shows it).
++/// A label of "-" draws a separator.
++
++/// @desc Is this menu / item shown in the current editor mode?
++function menu_mode_visible(_mode)
++{
++    if (_mode == "all")
++    {
++        return true;
++    }
++    return (_mode == menu_mode);
++}
++
++/// @desc Per-frame menu input. Call first thing in the Step event.
++function menu_update()
++{
++    menu_action = "";
++    menu_esc_consumed = false;
++    menu_click_consumed = false;
++
++    menu_mode = "3d";
++
++    draw_set_font(-1);
++
++    // --- Lay out the visible titles along the bar ---
++    menu_vis = [];
++    menu_title_x = [];
++    menu_title_w = [];
++    var _x = 6;
++    for (var _i = 0; _i < array_length(menu_defs); _i++)
++    {
++        var _def = menu_defs[_i];
++        if (menu_mode_visible(_def.mode))
++        {
++            var _w = string_width(_def.title) + menu_title_pad * 2;
++            array_push(menu_vis, _i);
++            array_push(menu_title_x, _x);
++            array_push(menu_title_w, _w);
++            _x += _w;
++        }
++    }
++
++    // A mode switch can leave the open index pointing past the visible list
++    if (menu_open >= array_length(menu_vis))
++    {
++        menu_open = -1;
++    }
++
++    var _mx = device_mouse_x_to_gui(0);
++    var _my = device_mouse_y_to_gui(0);
++
++    // --- Title under the mouse ---
++    menu_title_hover = -1;
++    if (_my >= 0 && _my < menu_bar_h)
++    {
++        for (var _t = 0; _t < array_length(menu_vis); _t++)
++        {
++            if (_mx >= menu_title_x[_t] && _mx < menu_title_x[_t] + menu_title_w[_t])
++            {
++                menu_title_hover = _t;
++            }
++        }
++    }
++
++    // Escape closes an open menu (and does NOT fall through to quit)
++    if (menu_open >= 0 && keyboard_check_pressed(vk_escape))
++    {
++        menu_open = -1;
++        menu_esc_consumed = true;
++    }
++
++    // While a menu is open, sliding across the bar switches menus
++    if (menu_open >= 0 && menu_title_hover >= 0)
++    {
++        menu_open = menu_title_hover;
++    }
++
++    menu_build_dropdown();
++
++    // --- Item under the mouse ---
++    menu_item_hover = menu_find_hover_item(_mx, _my);
++
++    // --- Clicks ---
++    if (mouse_check_button_pressed(mb_left))
++    {
++        if (menu_title_hover >= 0)
++        {
++            if (menu_open == menu_title_hover)
++            {
++                menu_open = -1;
++            }
++            else
++            {
++                menu_open = menu_title_hover;
++            }
++            menu_build_dropdown();
++            menu_item_hover = menu_find_hover_item(_mx, _my);
++            menu_click_consumed = true;
++        }
++        else if (menu_open >= 0)
++        {
++            if (menu_item_hover >= 0)
++            {
++                menu_action = menu_drop_items[menu_item_hover].act;
++            }
++            // Clicking anywhere (item or outside) closes the menu and eats the click
++            menu_open = -1;
++            menu_click_consumed = true;
++        }
++    }
++
++    if (mouse_check_button_pressed(mb_right) && menu_open >= 0)
++    {
++        menu_open = -1;
++        menu_click_consumed = true;
++    }
++
++    // Anything the menu owns this frame must not reach the editors
++    menu_blocks_mouse = false;
++    if (menu_click_consumed)
++    {
++        menu_blocks_mouse = true;
++    }
++    if (menu_open >= 0)
++    {
++        menu_blocks_mouse = true;
++    }
++    if (_my >= 0 && _my < menu_bar_h)
++    {
++        menu_blocks_mouse = true;
++    }
++}
++
++/// @desc Build the filtered item list and geometry of the open drop-down.
++function menu_build_dropdown()
++{
++    menu_drop_items = [];
++    menu_drop_iy = [];
++    menu_drop_ih = [];
++    menu_drop_x = 0;
++    menu_drop_y = menu_bar_h;
++    menu_drop_w = 0;
++    menu_drop_h = 0;
++
++    if (menu_open < 0)
++    {
++        return;
++    }
++
++    var _def = menu_defs[menu_vis[menu_open]];
++    var _y = menu_bar_h + 3;
++    var _label_w = 0;
++    var _key_w = 0;
++
++    for (var _i = 0; _i < array_length(_def.items); _i++)
++    {
++        var _it = _def.items[_i];
++        if (menu_mode_visible(_it.mode))
++        {
++            // Skip a separator that would be the first visible line
++            var _is_sep = (_it.label == "-");
++            if (_is_sep && array_length(menu_drop_items) == 0)
++            {
++                continue;
++            }
++
++            var _h = menu_item_h;
++            if (_is_sep)
++            {
++                _h = menu_sep_h;
++            }
++
++            array_push(menu_drop_items, _it);
++            array_push(menu_drop_iy, _y);
++            array_push(menu_drop_ih, _h);
++            _y += _h;
++
++            if (!_is_sep)
++            {
++                _label_w = max(_label_w, string_width(_it.label));
++                _key_w = max(_key_w, string_width(_it.key));
++            }
++        }
++    }
++
++    // Drop a trailing separator
++    var _n = array_length(menu_drop_items);
++    if (_n > 0)
++    {
++        if (menu_drop_items[_n - 1].label == "-")
++        {
++            _y -= menu_drop_ih[_n - 1];
++            array_delete(menu_drop_items, _n - 1, 1);
++            array_delete(menu_drop_iy, _n - 1, 1);
++            array_delete(menu_drop_ih, _n - 1, 1);
++        }
++    }
++
++    menu_drop_x = menu_title_x[menu_open];
++    menu_drop_w = menu_item_pad + menu_check_w + _label_w + menu_key_gap + _key_w + menu_item_pad;
++    menu_drop_h = (_y + 3) - menu_bar_h;
++
++    // Keep the drop-down on screen
++    var _gw = display_get_gui_width();
++    if (menu_drop_x + menu_drop_w > _gw)
++    {
++        menu_drop_x = max(0, _gw - menu_drop_w);
++    }
++}
++
++/// @desc Index of the clickable item under the mouse, or -1.
++function menu_find_hover_item(_mx, _my)
++{
++    if (menu_open < 0)
++    {
++        return -1;
++    }
++    if (_mx < menu_drop_x || _mx >= menu_drop_x + menu_drop_w)
++    {
++        return -1;
++    }
++    for (var _i = 0; _i < array_length(menu_drop_items); _i++)
++    {
++        var _it = menu_drop_items[_i];
++        if (_it.label != "-" && _it.act != "")
++        {
++            if (_my >= menu_drop_iy[_i] && _my < menu_drop_iy[_i] + menu_drop_ih[_i])
++            {
++                return _i;
++            }
++        }
++    }
++    return -1;
++}
++
++/// @desc Tick state for toggle-style items.
++function menu_item_checked(_act)
++{
++    switch (_act)
++    {
++        case "grid":          return grid_visible;
++        case "tex_filter":    return tex_filter_on;
++        case "cull":          return cull_on;
++        case "tiles_builtin": return !global.tile_is_custom;
++        case "tiles_custom":  return global.tile_is_custom;
++    }
++    return false;
++}
++
++/// @desc Draw the bar and any open drop-down. Call LAST in Draw GUI.
++function menu_draw()
++{
++    var _gw = display_get_gui_width();
++
++    draw_set_font(-1);
++    gpu_set_tex_filter(true);
++    draw_set_valign(fa_middle);
++    draw_set_halign(fa_left);
++
++    // --- Bar ---
++    draw_set_alpha(0.95);
++    draw_set_colour(menu_col_bar);
++    draw_rectangle(0, 0, _gw, menu_bar_h - 1, false);
++    draw_set_alpha(1);
++    draw_set_colour(menu_col_line);
++    draw_line(0, menu_bar_h - 1, _gw, menu_bar_h - 1);
++
++    for (var _t = 0; _t < array_length(menu_vis); _t++)
++    {
++        var _tx = menu_title_x[_t];
++        var _tw = menu_title_w[_t];
++        if (_t == menu_open)
++        {
++            draw_set_colour(menu_col_accent);
++            draw_rectangle(_tx, 0, _tx + _tw - 1, menu_bar_h - 2, false);
++        }
++        else if (_t == menu_title_hover)
++        {
++            draw_set_colour(menu_col_hover);
++            draw_rectangle(_tx, 0, _tx + _tw - 1, menu_bar_h - 2, false);
++        }
++        draw_set_colour(c_white);
++        draw_text(_tx + menu_title_pad, menu_bar_h * 0.5, menu_defs[menu_vis[_t]].title);
++    }
++
++    // Mode label on the right of the bar
++    var _mode_text = "3D EDITOR  |  Plane: " + active_plane;
++    draw_set_halign(fa_right);
++    draw_set_colour(c_ltgray);
++    draw_text(_gw - 10, menu_bar_h * 0.5, _mode_text);
++    draw_set_halign(fa_left);
++
++    // --- Drop-down ---
++    if (menu_open >= 0)
++    {
++        var _x1 = menu_drop_x;
++        var _y1 = menu_drop_y;
++        var _x2 = menu_drop_x + menu_drop_w;
++        var _y2 = menu_drop_y + menu_drop_h;
++
++        // Shadow, body, outline
++        draw_set_alpha(0.35);
++        draw_set_colour(c_black);
++        draw_rectangle(_x1 + 4, _y1 + 4, _x2 + 4, _y2 + 4, false);
++        draw_set_alpha(0.97);
++        draw_set_colour(menu_col_panel);
++        draw_rectangle(_x1, _y1, _x2, _y2, false);
++        draw_set_alpha(1);
++        draw_set_colour(menu_col_line);
++        draw_rectangle(_x1, _y1, _x2, _y2, true);
++
++        for (var _i = 0; _i < array_length(menu_drop_items); _i++)
++        {
++            var _it = menu_drop_items[_i];
++            var _iy = menu_drop_iy[_i];
++            var _ih = menu_drop_ih[_i];
++
++            if (_it.label == "-")
++            {
++                draw_set_colour(menu_col_line);
++                var _sy = _iy + floor(_ih * 0.5);
++                draw_line(_x1 + 6, _sy, _x2 - 6, _sy);
++                continue;
++            }
++
++            if (_i == menu_item_hover)
++            {
++                draw_set_colour(menu_col_accent);
++                draw_rectangle(_x1 + 2, _iy, _x2 - 2, _iy + _ih - 1, false);
++            }
++
++            var _cy = _iy + _ih * 0.5;
++
++            // Tick box for toggles
++            if (_it.act != "")
++            {
++                if (menu_item_checked(_it.act))
++                {
++                    var _bx = _x1 + menu_item_pad;
++                    draw_set_colour(c_white);
++                    draw_rectangle(_bx + 2, _cy - 4, _bx + 9, _cy + 3, false);
++                }
++            }
++
++            // Label: info-only lines are dimmed
++            if (_it.act == "")
++            {
++                draw_set_colour(c_ltgray);
++            }
++            else
++            {
++                draw_set_colour(c_white);
++            }
++            draw_set_halign(fa_left);
++            draw_text(_x1 + menu_item_pad + menu_check_w, _cy, _it.label);
++
++            // Shortcut, right-aligned
++            if (_it.key != "")
++            {
++                draw_set_halign(fa_right);
++                if (_i == menu_item_hover)
++                {
++                    draw_set_colour(c_white);
++                }
++                else
++                {
++                    draw_set_colour(c_gray);
++                }
++                draw_text(_x2 - menu_item_pad, _cy, _it.key);
++            }
++        }
++    }
++
++    // Restore shared draw state
++    draw_set_halign(fa_left);
++    draw_set_valign(fa_top);
++    draw_set_colour(c_white);
++    draw_set_alpha(1);
++    gpu_set_tex_filter(tex_filter_on);
++}
+diff --git a/scripts/MENU_system/MENU_system.yy b/scripts/MENU_system/MENU_system.yy
+new file mode 100644
+index 0000000..293c476
+--- /dev/null
++++ b/scripts/MENU_system/MENU_system.yy
+@@ -0,0 +1,13 @@
++{
++  "$GMScript":"v1",
++  "%Name":"MENU_system",
++  "isCompatibility":false,
++  "isDnD":false,
++  "name":"MENU_system",
++  "parent":{
++    "name":"Functions",
++    "path":"folders/Functions.yy",
++  },
++  "resourceType":"GMScript",
++  "resourceVersion":"2.0",
++}
+\ No newline at end of file
+-- 
+2.43.0
+

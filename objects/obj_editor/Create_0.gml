@@ -103,3 +103,104 @@ palette_y = 0;
 plane_offset_XY = { left_right: 0, up_down: 0, depth: 0 };
 plane_offset_XZ = { left_right: 0, up_down: 0, depth: 0 };
 plane_offset_YZ = { left_right: 0, up_down: 0, depth: 0 };
+// --- MENU BAR (replaces the old shortcuts panel; see MENU_system) ---
+menu_bar_h = 22;            // height of the top bar in GUI pixels
+menu_title_pad = 10;        // horizontal padding around each title
+menu_item_h = 20;           // height of a drop-down line
+menu_sep_h = 9;             // height of a separator line
+menu_item_pad = 10;         // inner padding of the drop-down
+menu_key_gap = 36;          // minimum gap between label and shortcut
+menu_check_w = 18;          // space reserved for the tick box
+menu_mode = "3d";           // "3d" or "pe" (which editor the bar is showing)
+menu_open = -1;             // index into menu_vis of the open menu (-1 = closed)
+menu_title_hover = -1;
+menu_item_hover = -1;
+menu_vis = [];              // indices of menu_defs visible in this mode
+menu_title_x = [];
+menu_title_w = [];
+menu_drop_items = [];       // visible items of the open menu
+menu_drop_iy = [];
+menu_drop_ih = [];
+menu_drop_x = 0;
+menu_drop_y = 0;
+menu_drop_w = 0;
+menu_drop_h = 0;
+menu_action = "";           // action id chosen this frame ("" = none)
+menu_esc_consumed = false;  // Esc closed a menu this frame (don't quit)
+menu_click_consumed = false;
+menu_blocks_mouse = false;  // true when the menu owns the mouse this frame
+menu_col_bar = make_color_rgb(30, 32, 40);
+menu_col_panel = make_color_rgb(38, 40, 50);
+menu_col_line = make_color_rgb(80, 84, 100);
+menu_col_hover = make_color_rgb(58, 62, 78);
+menu_col_accent = make_color_rgb(60, 105, 200);
+
+menu_defs = [
+    {
+        title: "File", mode: "all",
+        items: [
+            { label: "Save scene",       key: "Ctrl+S",       act: "scene_save",    mode: "3d" },
+            { label: "Save scene as...", key: "Ctrl+Shift+S", act: "scene_save_as", mode: "3d" },
+            { label: "Load scene...",    key: "Ctrl+L",       act: "scene_load",    mode: "3d" },
+            { label: "-",                key: "",             act: "",              mode: "3d" },
+            { label: "Export OBJ...",    key: "Alt+Shift+S",  act: "export_obj",    mode: "3d" },
+            { label: "-",                key: "",             act: "",              mode: "3d" },
+            { label: "Restart",          key: "Enter",        act: "restart",       mode: "3d" },
+            { label: "Quit",             key: "Esc",          act: "quit",          mode: "3d" }
+        ]
+    },
+    {
+        title: "Edit", mode: "all",
+        items: [
+            { label: "Undo",                key: "Ctrl+Z", act: "undo",   mode: "all" },
+            { label: "Redo",                key: "Ctrl+Y", act: "redo",   mode: "all" },
+            { label: "-",                   key: "",       act: "",       mode: "3d" },
+            { label: "Rotate brush",        key: "R",      act: "rotate", mode: "3d" },
+            { label: "Flip brush H",        key: "X",      act: "flip_x", mode: "3d" },
+            { label: "Flip brush V",        key: "Y",      act: "flip_y", mode: "3d" }
+        ]
+    },
+    {
+        title: "View", mode: "all",
+        items: [
+            { label: "Reset view",       key: "Home", act: "reset_view", mode: "3d" },
+            { label: "-",                key: "",     act: "",           mode: "3d" },
+            { label: "Grid",             key: "G",    act: "grid",       mode: "3d" },
+            { label: "Texture filter",   key: "T",    act: "tex_filter", mode: "3d" },
+            { label: "Backface culling", key: "B",    act: "cull",       mode: "3d" }
+        ]
+    },
+    {
+        title: "Place", mode: "3d",
+        items: [
+            { label: "Depth in",       key: "Q",     act: "depth_in",    mode: "3d" },
+            { label: "Depth out",      key: "E",     act: "depth_out",   mode: "3d" },
+            { label: "Reset depth",    key: "W",     act: "depth_reset", mode: "3d" },
+            { label: "-",              key: "",      act: "",            mode: "3d" },
+            { label: "Decal forward",  key: "1",     act: "decal_fwd",   mode: "3d" },
+            { label: "Decal back",     key: "Tab+1", act: "decal_back",  mode: "3d" },
+            { label: "Reset decal",    key: "0",     act: "decal_reset", mode: "3d" }
+        ]
+    },
+    {
+        title: "Tileset", mode: "3d",
+        items: [
+            { label: "Import PNG...",     key: "Ctrl+I", act: "tiles_import",  mode: "3d" },
+            { label: "-",                 key: "",       act: "",              mode: "3d" },
+            { label: "Built-in tileset",  key: "F1",     act: "tiles_builtin", mode: "3d" },
+            { label: "Custom tileset",    key: "F2",     act: "tiles_custom",  mode: "3d" }
+        ]
+    },
+    {
+        title: "Help", mode: "all",
+        items: [
+            { label: "Place / replace", key: "LMB",          act: "", mode: "3d" },
+            { label: "Remove",          key: "RMB / Del",    act: "", mode: "3d" },
+            { label: "Tile palette",    key: "Space (hold)", act: "", mode: "3d" },
+            { label: "Pick brush",      key: "Space+drag",   act: "", mode: "3d" },
+            { label: "Pan",             key: "MMB drag",     act: "", mode: "3d" },
+            { label: "Orbit",           key: "Alt+MMB drag", act: "", mode: "3d" },
+            { label: "Zoom",            key: "Wheel",        act: "", mode: "3d" }
+        ]
+    }
+];

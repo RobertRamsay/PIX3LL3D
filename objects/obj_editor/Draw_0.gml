@@ -70,7 +70,7 @@ for (var i = 0; i < array_length(_names); i++) {
 
 // --- 4. DRAW GHOST TILE (always visible, never culled; hidden while orbiting) ---
 gpu_set_cullmode(cull_noculling);
-if (!mouse_check_button(mb_right) && !mouse_check_button(mb_middle) && !palette_open) {
+if (!mouse_check_button(mb_right) && !mouse_check_button(mb_middle) && !palette_open && !menu_blocks_mouse) {
     var _ghost_facing = 1;
     if (active_plane == "XY") { _ghost_facing = (_cz < -ghost_z) ? -1 : 1; }
     if (active_plane == "XZ") { _ghost_facing = (_cy < ghost_y) ? -1 : 1; }

@@ -2,7 +2,7 @@
 
 gpu_set_cullmode(cull_noculling);
 var _hud_x = 20;
-var _hud_y = 20;
+var _hud_y = 20 + menu_bar_h; // sits below the menu bar
 draw_set_font(-1);
 draw_set_halign(fa_left);
 draw_set_valign(fa_top);
@@ -54,112 +54,6 @@ draw_text(_cx2 + _az_x + 4, _cy2 + _az_y - 8, "Z");
 
 draw_set_color(c_black);
 draw_text(_hud_x + 10, _hud_y + 85, "Plane: " + active_plane);
-
-// --- SHORTCUTS LIST ---
-gpu_set_tex_filter(true); // force smooth text regardless of the T toggle
-var _sx = _hud_x + 4;
-var _sy = _hud_y + 130;
-var _col_gap = 30; // px gap between key column and description column
-// Each entry: [key, description]
-var _lines = [
-
-    ["Q/E", "Depth in/out"],
-	["W", "Reset Depth"],
-	["CTRL+Z", "UNDO"],
-	["CTRL+Y", "REDO"],
-    ["R", "Rotate tile"],
-    ["X/Y", "Flip texture H/V"],
-    ["1", "Decal offset fwd"],
-    ["Tab+1", "Decal offset back"],
-    ["0", "Reset offset"],
-    ["SPACE", "Tile palette"],
-    ["LMB", "Place / replace"],
-    ["Del/Bksp/RMB", "Remove"],
-    ["Alt+MMB drag", "Orbit"],
-    ["MMB drag", "Pan"],
-    ["Wheel", "Zoom"],
-    ["T", "Texture filter"],
-    ["B", "Backface cull"],
-    ["G", "Toggle grid"],
-    ["Home", "Reset view"],
-    ["Ctrl+S", "Save"],
-    ["Ctrl+Shift+S", "Save As"],
-    ["Ctrl+L", "Load"],
-    ["Alt+Shift+S", "Export OBJ"],
-	["Escape", "QUIT"],
-	["Enter", "RESTART"],
-	["Ctrl+I", "Import tileset"],
-	["F2", "Use custom set"],
-	["F1", "Use built-in set"]
-];
-
-// Measure panel size: header + lines (two columns)
-var _pad = 8;
-var _line_h = 16;
-var _header_gap = 34;
-var _content_h = _header_gap + array_length(_lines) * _line_h;
-
-// Widest key and widest description
-var _max_key = 0;
-var _max_desc = 0;
-for (var _i = 0; _i < array_length(_lines); _i++) {
-    var _kw = string_width(_lines[_i][0]);
-    var _dw = string_width(_lines[_i][1]);
-    if (_kw > _max_key)  { _max_key = _kw; }
-    if (_dw > _max_desc) { _max_desc = _dw; }
-}
-
-// Content width = key column + gap + desc column, but at least the header width
-var _content_w = _max_key + _col_gap + _max_desc;
-if (string_width("SHORTCUTS") > _content_w) { _content_w = string_width("SHORTCUTS"); }
-
-var _panel_x1 = _sx - _pad;
-var _panel_y1 = _sy - _pad;
-var _panel_x2 = _sx + _content_w + _pad;
-var _panel_y2 = _sy + _content_h + _pad;
-
-// Right edge where descriptions align to
-var _desc_right = _sx + _content_w;
-
-// 85% black panel
-draw_set_alpha(0.85);
-draw_set_color(c_black);
-draw_rectangle(_panel_x1, _panel_y1, _panel_x2, _panel_y2, false);
-draw_set_alpha(1);
-// Outline
-draw_set_color(c_white);
-draw_rectangle(_panel_x1, _panel_y1, _panel_x2, _panel_y2, true);
-
-// Header
-draw_set_color(c_white);
-draw_set_halign(fa_left);
-draw_text(_sx, _sy, "SHORTCUTS");
-
-// Lines: key left-justified, description right-justified, divider fills the gap per row
-for (var _i = 0; _i < array_length(_lines); _i++) {
-    var _ly = _sy + _header_gap + _i * _line_h;
-
-    // Key text
-    draw_set_color(c_ltgray);
-    draw_set_halign(fa_left);
-    draw_text(_sx, _ly, _lines[_i][0]);
-
-    // Description text (right-justified)
-    draw_set_halign(fa_right);
-    draw_text(_desc_right, _ly, _lines[_i][1]);
-
-    // Divider: from 10px after this key to 10px before this description
-    var _key_end  = _sx + string_width(_lines[_i][0]) + 10;
-    var _desc_start = (_desc_right - string_width(_lines[_i][1])) - 10;
-    if (_desc_start > _key_end) {
-        draw_set_color(c_gray);
-        var _mid_y = _ly + _line_h * 0.5;
-        draw_line(_key_end, _mid_y, _desc_start, _mid_y);
-    }
-}
-draw_set_halign(fa_left); // restore
-draw_set_color(c_white);
-gpu_set_tex_filter(tex_filter_on); // restore the user's chosen filter state
 
 // --- TILE PALETTE OVERLAY ---
 if (palette_open) {
@@ -250,3 +144,6 @@ if (palette_open) {
 
     draw_set_color(c_white);
 }
+
+// --- MENU BAR (last, so drop-downs sit over everything) ---
+menu_draw();

@@ -1,11 +1,14 @@
 /// @desc STEP EVENT of obj_editor
 
-if (keyboard_check_pressed(vk_escape))
+// --- MENU BAR (runs first so a menu click this frame drives the shortcuts below) ---
+menu_update();
+
+if ((keyboard_check_pressed(vk_escape) && !menu_esc_consumed) || menu_action == "quit")
 {
     game_end();
 }
 
-if (keyboard_check_pressed(vk_enter))
+if (keyboard_check_pressed(vk_enter) || menu_action == "restart")
 {
     game_restart();
 }
@@ -210,23 +213,23 @@ if (mouse_wheel_down()) {
 cam_dist = clamp(cam_dist, 2, 100);
 
 // --- TEXTURE FILTER TOGGLE ---
-if (keyboard_check_pressed(ord("T"))) {
+if (keyboard_check_pressed(ord("T")) || menu_action == "tex_filter") {
     tex_filter_on = !tex_filter_on;
     gpu_set_tex_filter(tex_filter_on);
 }
 
 // --- BACKFACE CULLING TOGGLE ---
-if (keyboard_check_pressed(ord("B"))) {
+if (keyboard_check_pressed(ord("B")) || menu_action == "cull") {
     cull_on = !cull_on;
 }
 
 // --- GRID TOGGLE ---
-if (keyboard_check_pressed(ord("G"))) {
+if (keyboard_check_pressed(ord("G")) || menu_action == "grid") {
     grid_visible = !grid_visible;
 }
 
 // --- RESET VIEW (Home) ---
-if (keyboard_check_pressed(vk_home)) {
+if (keyboard_check_pressed(vk_home) || menu_action == "reset_view") {
     cam_dist = cam_dist_default;
     cam_pitch = cam_pitch_default;
     cam_yaw = cam_yaw_default;
@@ -240,7 +243,7 @@ var _ctrl = keyboard_check(vk_control);
     var _shift = keyboard_check(vk_shift);
     var _alt = keyboard_check(vk_alt);
 
-    if (_alt && _shift && keyboard_check_pressed(ord("S")))
+    if ((_alt && _shift && keyboard_check_pressed(ord("S"))) || menu_action == "export_obj")
     {
         var _obj_path = get_save_filename_safe("OBJ model|*.obj", "model.obj");
         if (_obj_path != "")
@@ -249,29 +252,40 @@ var _ctrl = keyboard_check(vk_control);
         }
     }
 
-// Ctrl+Shift+S = Save As (new file)
+// Ctrl+Shift+S = Save As (new file), Ctrl+S = save over last known file
+var _do_save_as = false;
+var _do_save = false;
 if (_ctrl && _shift && keyboard_check_pressed(ord("S"))) {
+    _do_save_as = true;
+}
+else if (_ctrl && keyboard_check_pressed(ord("S"))) {
+    _do_save = true;
+}
+if (menu_action == "scene_save_as") {
+    _do_save_as = true;
+}
+if (menu_action == "scene_save") {
+    _do_save = true;
+}
+// Plain save with no file yet falls back to Save As
+if (_do_save && scene_path == "") {
+    _do_save = false;
+    _do_save_as = true;
+}
+
+if (_do_save_as) {
     var _path = get_save_filename_safe("Scene files (*.scene)|*.scene", "untitled.scene");
     if (_path != "") {
         scene_path = _path;
         scene_save(scene_path);
     }
 }
-// Ctrl+S = save over last known file (falls back to Save As if none)
-else if (_ctrl && keyboard_check_pressed(ord("S"))) {
-    if (scene_path == "") {
-        var _path = get_save_filename_safe("Scene files (*.scene)|*.scene", "untitled.scene");
-        if (_path != "") {
-            scene_path = _path;
-            scene_save(scene_path);
-        }
-    } else {
-        scene_save(scene_path);
-    }
+else if (_do_save) {
+    scene_save(scene_path);
 }
 
 // Ctrl+L = Load
-if (_ctrl && keyboard_check_pressed(ord("L"))) {
+if ((_ctrl && keyboard_check_pressed(ord("L"))) || menu_action == "scene_load") {
     var _path = get_open_filename_safe("Scene files (*.scene)|*.scene", "");
     if (_path != "") {
         if (scene_load(_path)) {
@@ -281,7 +295,7 @@ if (_ctrl && keyboard_check_pressed(ord("L"))) {
 }
 
 // --- TILESET IMPORT (Ctrl+I) / SWITCH (F2 custom, F1 built-in) ---
-if (_ctrl && keyboard_check_pressed(ord("I"))) {
+if ((_ctrl && keyboard_check_pressed(ord("I"))) || menu_action == "tiles_import") {
     var _ts_path = get_open_filename_safe("PNG image (*.png)|*.png", "");
     if (_ts_path != "") {
         var _loaded = tileset_import(_ts_path, global.tile_cell);
@@ -302,7 +316,7 @@ if (_ctrl && keyboard_check_pressed(ord("I"))) {
     }
 }
 
-if (keyboard_check_pressed(vk_f2)) {
+if (keyboard_check_pressed(vk_f2) || menu_action == "tiles_custom") {
     if (global.tile_custom >= 0 && sprite_exists(global.tile_custom)) {
         global.tile_sprite = global.tile_custom;
         global.tile_is_custom = true;
@@ -314,7 +328,7 @@ if (keyboard_check_pressed(vk_f2)) {
     }
 }
 
-if (keyboard_check_pressed(vk_f1)) {
+if (keyboard_check_pressed(vk_f1) || menu_action == "tiles_builtin") {
     global.tile_sprite = spr_tile;
     global.tile_is_custom = false;
     palette_cols = palette_cols_builtin;
@@ -327,24 +341,34 @@ if (keyboard_check_pressed(vk_f1)) {
 
 
 // Ctrl+Z = Undo, Ctrl+Y = Redo
-if (_ctrl && keyboard_check_pressed(ord("Z"))) {
+if ((_ctrl && keyboard_check_pressed(ord("Z"))) || menu_action == "undo") {
     undo_perform();
 }
-if (_ctrl && keyboard_check_pressed(ord("Y"))) {
+if ((_ctrl && keyboard_check_pressed(ord("Y"))) || menu_action == "redo") {
     redo_perform();
 }
 
 // --- DECAL OFFSET (1 forward, Tab+1 back, 0 reset) ---
+var _decal_step = 0;
 if (keyboard_check_pressed(ord("1"))) {
     if (keyboard_check(vk_tab)) {
-        grid_offset += 1;
+        _decal_step = 1;
     } else {
-        grid_offset -= 1;
+        _decal_step = -1;
     }
+}
+if (menu_action == "decal_fwd") {
+    _decal_step = -1;
+}
+if (menu_action == "decal_back") {
+    _decal_step = 1;
+}
+if (_decal_step != 0) {
+    grid_offset += _decal_step;
     grid_offset = clamp(grid_offset, -grid_offset_max, grid_offset_max);
 }
 
-if (keyboard_check_pressed(ord("0"))) {
+if (keyboard_check_pressed(ord("0")) || menu_action == "decal_reset") {
     grid_offset = 0;
 }
 // --- TILE PALETTE (hold SPACE) ---
@@ -474,17 +498,17 @@ if (active_plane == "XZ") { _away = sign(_dir_y); }
 if (active_plane == "YZ") { _away = sign(_dir_x); }
 if (_away == 0) { _away = 1; }
 
-if (keyboard_check_pressed(ord("Q"))) {
+if (keyboard_check_pressed(ord("Q")) || menu_action == "depth_in") {
     _active_offset.depth += _away;
 }
-if (keyboard_check_pressed(ord("E"))) {
+if (keyboard_check_pressed(ord("E")) || menu_action == "depth_out") {
     _active_offset.depth -= _away;
 }
 
 // --- W RESETS THE ACTIVE PLANE'S DEPTH OFFSET ---
 var _no_mod = (!keyboard_check(vk_shift) && !keyboard_check(vk_alt) && !keyboard_check(vk_control));
 
-if (_no_mod && keyboard_check_pressed(ord("W"))) {
+if ((_no_mod && keyboard_check_pressed(ord("W"))) || menu_action == "depth_reset") {
     _active_offset.depth = 0;
 }
 
@@ -587,7 +611,7 @@ if (active_plane == "YZ") {
 var _place_key = string(ghost_x) + "," + string(ghost_y) + "," + string(ghost_z) + "," + active_plane + "," + string(grid_offset);
 
 // Left click places or replaces the whole brush footprint (not while palette open)
-if (mouse_check_button_pressed(mb_left) && !palette_open) {
+if (mouse_check_button_pressed(mb_left) && !palette_open && !menu_blocks_mouse) {
     undo_push_snapshot();
 
     var _facing = 1;
@@ -681,7 +705,7 @@ if (mouse_check_button_pressed(mb_left) && !palette_open) {
 }
 
 // Backspace, Delete, or Right Mouse removes the whole brush footprint
-if (keyboard_check_pressed(vk_delete) || keyboard_check_pressed(vk_backspace) || mouse_check_button_pressed(mb_right)) {
+if (keyboard_check_pressed(vk_delete) || keyboard_check_pressed(vk_backspace) || (mouse_check_button_pressed(mb_right) && !menu_blocks_mouse)) {
     undo_push_snapshot();
 
     for (var _dr = 0; _dr < brush_rows; _dr++) {
@@ -716,9 +740,10 @@ if (keyboard_check_pressed(vk_delete) || keyboard_check_pressed(vk_backspace) ||
     }
 }
 
-// R rotates: hovered tile if one exists, otherwise the brush/preview
-if (keyboard_check_pressed(ord("R"))) {
-    if (variable_struct_exists(global.world_tiles, _place_key)) {
+// R rotates: hovered tile if one exists, otherwise the brush/preview.
+// From the menu it always rotates the brush (the mouse is over the menu).
+if (keyboard_check_pressed(ord("R")) || menu_action == "rotate") {
+    if (variable_struct_exists(global.world_tiles, _place_key) && menu_action != "rotate") {
         var _hovered = variable_struct_get(global.world_tiles, _place_key);
         _hovered.rot = (_hovered.rot + 1) mod 4;
     } else {
@@ -736,8 +761,8 @@ if (keyboard_check_pressed(ord("R"))) {
 }
 
 // X flips texture horizontally: hovered tile or preview
-if (keyboard_check_pressed(ord("X"))) {
-    if (variable_struct_exists(global.world_tiles, _place_key)) {
+if (keyboard_check_pressed(ord("X")) || menu_action == "flip_x") {
+    if (variable_struct_exists(global.world_tiles, _place_key) && menu_action != "flip_x") {
         var _hovered = variable_struct_get(global.world_tiles, _place_key);
         _hovered.flip_x = !_hovered.flip_x;
     } else {
@@ -746,8 +771,8 @@ if (keyboard_check_pressed(ord("X"))) {
 }
 
 // Y flips texture vertically: hovered tile or preview (not while Ctrl held — that's redo)
-if (keyboard_check_pressed(ord("Y")) && !keyboard_check(vk_control)) {
-    if (variable_struct_exists(global.world_tiles, _place_key)) {
+if ((keyboard_check_pressed(ord("Y")) && !keyboard_check(vk_control)) || menu_action == "flip_y") {
+    if (variable_struct_exists(global.world_tiles, _place_key) && menu_action != "flip_y") {
         var _hovered = variable_struct_get(global.world_tiles, _place_key);
         _hovered.flip_y = !_hovered.flip_y;
     } else {
