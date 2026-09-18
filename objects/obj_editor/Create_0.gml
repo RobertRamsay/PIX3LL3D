@@ -10,6 +10,22 @@ cull_on = false;
 gpu_set_cullmode(cull_noculling);
 grid_visible = true;
 
+// --- BACKGROUND GRADIENT (sky top / bottom tones, editable from the swatch by the axis box) ---
+bg_col_top = make_color_rgb(135, 206, 235);
+bg_col_bot = make_color_rgb(40, 60, 170);
+bg_edit = "";          // "" closed, "top" or "bot" while the RGB popup is open
+bg_drag = -1;          // slider being dragged (0 R, 1 G, 2 B), -1 = none
+bg_ui_x = 0;           // swatch rect (set by bg_ui_layout)
+bg_ui_y = 0;
+bg_ui_w = 0;
+bg_ui_h = 0;
+bg_pop_x = 0;          // popup rect
+bg_pop_y = 0;
+bg_pop_w = 0;
+bg_pop_h = 0;
+bg_slider_h = 12;
+bg_slider_step = 26;
+
 // --- UI SCALE (GUI is a fixed 1080-high logical layer; see ui_update_gui_size) ---
 ui_ref_h = 1080;
 ui_last_w = 0;
@@ -396,7 +412,8 @@ pe_clip_w = 0;
 pe_clip_h = 0;
 
 // Layout (GUI pixels; recomputed every frame in pe_layout)
-pe_tool_w = 150;
+pe_tool_w = 180;            // widened in pe_layout to fit the longest tool label + key
+pe_tool_w_min = 180;
 pe_panel_w = 220;
 pe_opt_h = 30;
 pe_status_h = 24;

@@ -11,6 +11,9 @@ if (pe_open)
     exit;
 }
 
+// Background gradient swatch / RGB popup (can claim the mouse and Esc)
+bg_ui_update();
+
 if ((keyboard_check_pressed(ord("P")) && !keyboard_check(vk_control)) || menu_action == "pe_toggle")
 {
     pe_open_editor();

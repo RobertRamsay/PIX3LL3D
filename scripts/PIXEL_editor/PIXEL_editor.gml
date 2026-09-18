@@ -1178,6 +1178,15 @@ function pe_layout()
     var _gw = display_get_gui_width();
     var _gh = display_get_gui_height();
 
+    // Left panel wide enough for the longest "label ... key" pair
+    var _need = string_width("Brush size  [ ]");
+    for (var _n = 0; _n < array_length(pe_tools); _n++)
+    {
+        var _pair = string_width(pe_tools[_n].label) + string_width(pe_tools[_n].key) + 40;
+        _need = max(_need, _pair);
+    }
+    pe_tool_w = max(pe_tool_w_min, _need + 12);
+
     pe_vx0 = pe_tool_w;
     pe_vy0 = menu_bar_h + pe_opt_h;
     pe_vx1 = _gw - pe_panel_w;

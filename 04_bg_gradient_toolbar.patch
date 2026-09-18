@@ -1,0 +1,392 @@
+From 2a19793e5f4c60014c3bf95e16217c5bb7e7e9a8 Mon Sep 17 00:00:00 2001
+From: Claude <claude@local>
+Date: Fri, 18 Sep 2026 11:15:24 +0000
+Subject: [PATCH] Editable background gradient, wider pixel editor toolbar
+
+---
+ objects/obj_editor/Create_0.gml       |  19 +-
+ objects/obj_editor/Draw_0.gml         |   4 +-
+ objects/obj_editor/Draw_64.gml        |   3 +
+ objects/obj_editor/Step_0.gml         |   3 +
+ scripts/MENU_system/MENU_system.gml   | 257 ++++++++++++++++++++++++++
+ scripts/PIXEL_editor/PIXEL_editor.gml |   9 +
+ 6 files changed, 292 insertions(+), 3 deletions(-)
+
+diff --git a/objects/obj_editor/Create_0.gml b/objects/obj_editor/Create_0.gml
+index 44a8ae9..eecbe8e 100644
+--- a/objects/obj_editor/Create_0.gml
++++ b/objects/obj_editor/Create_0.gml
+@@ -10,6 +10,22 @@ cull_on = false;
+ gpu_set_cullmode(cull_noculling);
+ grid_visible = true;
+ 
++// --- BACKGROUND GRADIENT (sky top / bottom tones, editable from the swatch by the axis box) ---
++bg_col_top = make_color_rgb(135, 206, 235);
++bg_col_bot = make_color_rgb(40, 60, 170);
++bg_edit = "";          // "" closed, "top" or "bot" while the RGB popup is open
++bg_drag = -1;          // slider being dragged (0 R, 1 G, 2 B), -1 = none
++bg_ui_x = 0;           // swatch rect (set by bg_ui_layout)
++bg_ui_y = 0;
++bg_ui_w = 0;
++bg_ui_h = 0;
++bg_pop_x = 0;          // popup rect
++bg_pop_y = 0;
++bg_pop_w = 0;
++bg_pop_h = 0;
++bg_slider_h = 12;
++bg_slider_step = 26;
++
+ // --- UI SCALE (GUI is a fixed 1080-high logical layer; see ui_update_gui_size) ---
+ ui_ref_h = 1080;
+ ui_last_w = 0;
+@@ -396,7 +412,8 @@ pe_clip_w = 0;
+ pe_clip_h = 0;
+ 
+ // Layout (GUI pixels; recomputed every frame in pe_layout)
+-pe_tool_w = 150;
++pe_tool_w = 180;            // widened in pe_layout to fit the longest tool label + key
++pe_tool_w_min = 180;
+ pe_panel_w = 220;
+ pe_opt_h = 30;
+ pe_status_h = 24;
+diff --git a/objects/obj_editor/Draw_0.gml b/objects/obj_editor/Draw_0.gml
+index bdf1ff6..965b2c8 100644
+--- a/objects/obj_editor/Draw_0.gml
++++ b/objects/obj_editor/Draw_0.gml
+@@ -1,7 +1,7 @@
+ /// @desc DRAW EVENT of obj_editor
+ 
+ 
+-draw_clear(make_color_rgb(40, 60, 170));
++draw_clear(bg_col_bot);
+ 
+ // Pixel editor covers the whole screen from Draw GUI
+ if (pe_open) {
+@@ -26,7 +26,7 @@ gpu_set_tex_filter(true);
+ // --- SKYBOX ENCLOSURE (drawn first, no culling, no depth write) ---
+ gpu_set_cullmode(cull_noculling);
+ gpu_set_zwriteenable(false);
+-draw_skybox(50, -50, make_color_rgb(135, 206, 235), make_color_rgb(40, 60, 170));
++draw_skybox(50, -50, bg_col_top, bg_col_bot);
+ gpu_set_zwriteenable(true);
+ 
+ // --- 2. DRAW GROUND GRID (shifted by decal offset along active plane normal) ---
+diff --git a/objects/obj_editor/Draw_64.gml b/objects/obj_editor/Draw_64.gml
+index e978ec7..f48ce58 100644
+--- a/objects/obj_editor/Draw_64.gml
++++ b/objects/obj_editor/Draw_64.gml
+@@ -63,6 +63,9 @@ draw_text(_cx2 + _az_x + 4, _cy2 + _az_y - 8, "Z");
+ draw_set_color(c_black);
+ draw_text(_hud_x + 10, _hud_y + 85, "Plane: " + active_plane);
+ 
++// --- BACKGROUND GRADIENT SWATCH (+ RGB popup when open) ---
++bg_ui_draw();
++
+ // --- UNSAVED TEXTURE NOTICE ---
+ if (pe_png_dirty)
+ {
+diff --git a/objects/obj_editor/Step_0.gml b/objects/obj_editor/Step_0.gml
+index b6b80b0..9b4d80c 100644
+--- a/objects/obj_editor/Step_0.gml
++++ b/objects/obj_editor/Step_0.gml
+@@ -11,6 +11,9 @@ if (pe_open)
+     exit;
+ }
+ 
++// Background gradient swatch / RGB popup (can claim the mouse and Esc)
++bg_ui_update();
++
+ if ((keyboard_check_pressed(ord("P")) && !keyboard_check(vk_control)) || menu_action == "pe_toggle")
+ {
+     pe_open_editor();
+diff --git a/scripts/MENU_system/MENU_system.gml b/scripts/MENU_system/MENU_system.gml
+index 88c53cb..9ce35ad 100644
+--- a/scripts/MENU_system/MENU_system.gml
++++ b/scripts/MENU_system/MENU_system.gml
+@@ -29,6 +29,263 @@ function ui_update_gui_size()
+     display_set_gui_size(round(_ww / _scale), ui_ref_h);
+ }
+ 
++// ============================================================
++//  BACKGROUND GRADIENT PICKER (swatch beside the axis box)
++//  Top half of the swatch edits the sky top tone, bottom half the
++//  bottom tone. A click opens an RGB slider popup next to it.
++// ============================================================
++
++/// @desc Position of the gradient swatch and its popup (GUI pixels).
++function bg_ui_layout()
++{
++    var _hud_x = 20;
++    var _hud_y = 20 + menu_bar_h;
++    bg_ui_x = _hud_x + 128;
++    bg_ui_y = _hud_y - 5;
++    bg_ui_w = 26;
++    bg_ui_h = 115;
++
++    bg_pop_x = bg_ui_x + bg_ui_w + 8;
++    bg_pop_y = bg_ui_y;
++    bg_pop_w = 240;
++    bg_pop_h = 34 + 3 * bg_slider_step + 6;
++}
++
++/// @desc GUI rectangle of RGB slider _i (0 = R, 1 = G, 2 = B) in the popup.
++function bg_slider_x0()
++{
++    return bg_pop_x + 28;
++}
++
++function bg_slider_x1()
++{
++    return bg_pop_x + bg_pop_w - 48;
++}
++
++function bg_slider_y(_i)
++{
++    return bg_pop_y + 34 + _i * bg_slider_step;
++}
++
++/// @desc Colour being edited in the popup.
++function bg_edit_colour()
++{
++    if (bg_edit == "top")
++    {
++        return bg_col_top;
++    }
++    return bg_col_bot;
++}
++
++/// @desc Set one RGB channel of the edited colour from a mouse x position.
++function bg_set_channel(_i, _mx)
++{
++    var _t = clamp((_mx - bg_slider_x0()) / (bg_slider_x1() - bg_slider_x0()), 0, 1);
++    var _v = round(_t * 255);
++    var _col = bg_edit_colour();
++    var _r = colour_get_red(_col);
++    var _g = colour_get_green(_col);
++    var _b = colour_get_blue(_col);
++    if (_i == 0)
++    {
++        _r = _v;
++    }
++    if (_i == 1)
++    {
++        _g = _v;
++    }
++    if (_i == 2)
++    {
++        _b = _v;
++    }
++    var _new = make_color_rgb(_r, _g, _b);
++    if (bg_edit == "top")
++    {
++        bg_col_top = _new;
++    }
++    else
++    {
++        bg_col_bot = _new;
++    }
++}
++
++/// @desc Per-frame input for the gradient swatch + popup. Call after menu_update (3D only).
++function bg_ui_update()
++{
++    bg_ui_layout();
++
++    var _mx = device_mouse_x_to_gui(0);
++    var _my = device_mouse_y_to_gui(0);
++
++    var _over_swatch = (_mx >= bg_ui_x && _mx < bg_ui_x + bg_ui_w && _my >= bg_ui_y && _my < bg_ui_y + bg_ui_h);
++    var _over_popup = false;
++    if (bg_edit != "")
++    {
++        _over_popup = (_mx >= bg_pop_x && _mx < bg_pop_x + bg_pop_w && _my >= bg_pop_y && _my < bg_pop_y + bg_pop_h);
++    }
++
++    // Esc closes the popup before it can quit the app
++    if (bg_edit != "" && keyboard_check_pressed(vk_escape) && !menu_esc_consumed)
++    {
++        bg_edit = "";
++        bg_drag = -1;
++        menu_esc_consumed = true;
++    }
++
++    var _consumed = false;
++    if (mouse_check_button_pressed(mb_left) && !menu_blocks_mouse)
++    {
++        if (_over_swatch)
++        {
++            var _which = "bot";
++            if (_my < bg_ui_y + bg_ui_h * 0.5)
++            {
++                _which = "top";
++            }
++            if (bg_edit == _which)
++            {
++                bg_edit = "";
++            }
++            else
++            {
++                bg_edit = _which;
++            }
++            _consumed = true;
++        }
++        else if (_over_popup)
++        {
++            for (var _i = 0; _i < 3; _i++)
++            {
++                var _sy = bg_slider_y(_i);
++                if (_my >= _sy - 6 && _my < _sy + bg_slider_h + 6 && _mx >= bg_slider_x0() - 6 && _mx < bg_slider_x1() + 6)
++                {
++                    bg_drag = _i;
++                    bg_set_channel(_i, _mx);
++                }
++            }
++            _consumed = true;
++        }
++        else if (bg_edit != "")
++        {
++            // Click elsewhere closes the popup (and is eaten)
++            bg_edit = "";
++            _consumed = true;
++        }
++    }
++
++    if (bg_drag >= 0)
++    {
++        if (mouse_check_button(mb_left) && bg_edit != "")
++        {
++            bg_set_channel(bg_drag, _mx);
++        }
++        else
++        {
++            bg_drag = -1;
++        }
++    }
++
++    if (_over_swatch || _over_popup || _consumed || bg_drag >= 0)
++    {
++        menu_blocks_mouse = true;
++    }
++}
++
++/// @desc Draw the gradient swatch and the RGB popup (Draw GUI, 3D mode).
++function bg_ui_draw()
++{
++    bg_ui_layout();
++
++    var _x1 = bg_ui_x;
++    var _y1 = bg_ui_y;
++    var _x2 = bg_ui_x + bg_ui_w;
++    var _y2 = bg_ui_y + bg_ui_h;
++    var _mid = bg_ui_y + bg_ui_h * 0.5;
++
++    // Gradient (TL, TR, BR, BL)
++    draw_rectangle_colour(_x1, _y1, _x2, _y2, bg_col_top, bg_col_top, bg_col_bot, bg_col_bot, false);
++    draw_set_colour(c_black);
++    draw_rectangle(_x1, _y1, _x2, _y2, true);
++    draw_set_alpha(0.5);
++    draw_line(_x1, _mid, _x2, _mid);
++    draw_set_alpha(1);
++
++    // Highlight the half being edited
++    if (bg_edit == "top")
++    {
++        draw_set_colour(c_white);
++        draw_rectangle(_x1 + 1, _y1 + 1, _x2 - 1, _mid - 1, true);
++    }
++    if (bg_edit == "bot")
++    {
++        draw_set_colour(c_white);
++        draw_rectangle(_x1 + 1, _mid + 1, _x2 - 1, _y2 - 1, true);
++    }
++
++    if (bg_edit == "")
++    {
++        return;
++    }
++
++    // --- Popup ---
++    var _px1 = bg_pop_x;
++    var _py1 = bg_pop_y;
++    var _px2 = bg_pop_x + bg_pop_w;
++    var _py2 = bg_pop_y + bg_pop_h;
++    draw_set_alpha(0.95);
++    draw_set_colour(menu_col_panel);
++    draw_rectangle(_px1, _py1, _px2, _py2, false);
++    draw_set_alpha(1);
++    draw_set_colour(menu_col_line);
++    draw_rectangle(_px1, _py1, _px2, _py2, true);
++
++    gpu_set_tex_filter(true);
++    draw_set_font(-1);
++    draw_set_valign(fa_middle);
++    draw_set_halign(fa_left);
++
++    var _col = bg_edit_colour();
++    var _title = "Background bottom";
++    if (bg_edit == "top")
++    {
++        _title = "Background top";
++    }
++    draw_set_colour(c_white);
++    draw_text(_px1 + 8, _py1 + 14, _title);
++
++    // Preview chip
++    draw_set_colour(_col);
++    draw_rectangle(_px2 - 38, _py1 + 6, _px2 - 8, _py1 + 22, false);
++    draw_set_colour(c_white);
++    draw_rectangle(_px2 - 38, _py1 + 6, _px2 - 8, _py1 + 22, true);
++
++    var _names = ["R", "G", "B"];
++    var _vals = [colour_get_red(_col), colour_get_green(_col), colour_get_blue(_col)];
++    var _tints = [c_red, c_lime, make_color_rgb(60, 120, 255)];
++    var _sx0 = bg_slider_x0();
++    var _sx1 = bg_slider_x1();
++    for (var _i = 0; _i < 3; _i++)
++    {
++        var _sy = bg_slider_y(_i);
++        draw_rectangle_colour(_sx0, _sy, _sx1, _sy + bg_slider_h, c_black, _tints[_i], _tints[_i], c_black, false);
++        draw_set_colour(menu_col_line);
++        draw_rectangle(_sx0, _sy, _sx1, _sy + bg_slider_h, true);
++
++        var _kx = _sx0 + (_vals[_i] / 255) * (_sx1 - _sx0);
++        draw_set_colour(c_white);
++        draw_rectangle(_kx - 2, _sy - 3, _kx + 2, _sy + bg_slider_h + 3, false);
++
++        draw_set_colour(c_ltgray);
++        draw_text(_px1 + 10, _sy + bg_slider_h * 0.5, _names[_i]);
++        draw_set_halign(fa_right);
++        draw_text(_px2 - 8, _sy + bg_slider_h * 0.5, string(_vals[_i]));
++        draw_set_halign(fa_left);
++    }
++
++    draw_set_valign(fa_top);
++    draw_set_colour(c_white);
++}
++
+ /// @desc Is this menu / item shown in the current editor mode?
+ function menu_mode_visible(_mode)
+ {
+diff --git a/scripts/PIXEL_editor/PIXEL_editor.gml b/scripts/PIXEL_editor/PIXEL_editor.gml
+index c98ea29..d18288e 100644
+--- a/scripts/PIXEL_editor/PIXEL_editor.gml
++++ b/scripts/PIXEL_editor/PIXEL_editor.gml
+@@ -1178,6 +1178,15 @@ function pe_layout()
+     var _gw = display_get_gui_width();
+     var _gh = display_get_gui_height();
+ 
++    // Left panel wide enough for the longest "label ... key" pair
++    var _need = string_width("Brush size  [ ]");
++    for (var _n = 0; _n < array_length(pe_tools); _n++)
++    {
++        var _pair = string_width(pe_tools[_n].label) + string_width(pe_tools[_n].key) + 40;
++        _need = max(_need, _pair);
++    }
++    pe_tool_w = max(pe_tool_w_min, _need + 12);
++
+     pe_vx0 = pe_tool_w;
+     pe_vy0 = menu_bar_h + pe_opt_h;
+     pe_vx1 = _gw - pe_panel_w;
+-- 
+2.43.0
+

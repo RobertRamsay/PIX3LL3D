@@ -1,7 +1,7 @@
 /// @desc DRAW EVENT of obj_editor
 
 
-draw_clear(make_color_rgb(40, 60, 170));
+draw_clear(bg_col_bot);
 
 // Pixel editor covers the whole screen from Draw GUI
 if (pe_open) {
@@ -26,7 +26,7 @@ gpu_set_tex_filter(true);
 // --- SKYBOX ENCLOSURE (drawn first, no culling, no depth write) ---
 gpu_set_cullmode(cull_noculling);
 gpu_set_zwriteenable(false);
-draw_skybox(50, -50, make_color_rgb(135, 206, 235), make_color_rgb(40, 60, 170));
+draw_skybox(50, -50, bg_col_top, bg_col_bot);
 gpu_set_zwriteenable(true);
 
 // --- 2. DRAW GROUND GRID (shifted by decal offset along active plane normal) ---

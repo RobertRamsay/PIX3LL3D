@@ -63,6 +63,9 @@ draw_text(_cx2 + _az_x + 4, _cy2 + _az_y - 8, "Z");
 draw_set_color(c_black);
 draw_text(_hud_x + 10, _hud_y + 85, "Plane: " + active_plane);
 
+// --- BACKGROUND GRADIENT SWATCH (+ RGB popup when open) ---
+bg_ui_draw();
+
 // --- UNSAVED TEXTURE NOTICE ---
 if (pe_png_dirty)
 {
