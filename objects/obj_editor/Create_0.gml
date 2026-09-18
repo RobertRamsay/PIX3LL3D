@@ -9,6 +9,25 @@ gpu_set_tex_filter(tex_filter_on);
 cull_on = false;
 gpu_set_cullmode(cull_noculling);
 grid_visible = true;
+
+// --- UI SCALE (GUI is a fixed 1080-high logical layer; see ui_update_gui_size) ---
+ui_ref_h = 1080;
+ui_last_w = 0;
+ui_last_h = 0;
+
+// --- ANTI-ALIASING (MSAA smooths grid lines and polygon edges) ---
+// MSAA only applies to the back buffer, so draw straight to it.
+application_surface_enable(false);
+aa_level = 0;
+if ((display_aa & 8) != 0) {
+    aa_level = 8;
+} else if ((display_aa & 4) != 0) {
+    aa_level = 4;
+} else if ((display_aa & 2) != 0) {
+    aa_level = 2;
+}
+aa_on = (aa_level > 0);
+display_reset(aa_level, true);
 // --- CAMERA VARIABLES ---
 cam_dist = 12;
 cam_pitch = 20.7;
@@ -171,7 +190,8 @@ menu_defs = [
             { label: "Reset view",       key: "Home", act: "reset_view", mode: "3d" },
             { label: "-",                key: "",     act: "",           mode: "3d" },
             { label: "Grid",             key: "G",    act: "grid",       mode: "3d" },
-            { label: "Texture filter",   key: "T",    act: "tex_filter", mode: "3d" },
+            { label: "Tile texture filter", key: "T", act: "tex_filter", mode: "3d" },
+            { label: "Anti-aliasing (MSAA)", key: "", act: "aa_toggle",  mode: "3d" },
             { label: "Backface culling", key: "B",    act: "cull",       mode: "3d" },
             { label: "Fit sheet",        key: "Home",   act: "pe_fit",        mode: "pe" },
             { label: "Zoom in",          key: "=",      act: "pe_zoom_in",    mode: "pe" },

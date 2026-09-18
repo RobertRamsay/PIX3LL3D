@@ -20,6 +20,9 @@ camera_set_view_mat(camera_get_active(), _view);
 camera_set_proj_mat(camera_get_active(), _proj);
 camera_apply(camera_get_active());
 
+// Skybox and grid always draw smooth; the T toggle only applies to tile textures
+gpu_set_tex_filter(true);
+
 // --- SKYBOX ENCLOSURE (drawn first, no culling, no depth write) ---
 gpu_set_cullmode(cull_noculling);
 gpu_set_zwriteenable(false);
@@ -61,7 +64,8 @@ if (grid_visible) {
 	}
 }
 
-// --- 3. DRAW PLACED TILES ---
+// --- 3. DRAW PLACED TILES (filter follows the T toggle) ---
+gpu_set_tex_filter(tex_filter_on);
 if (cull_on) {
     gpu_set_cullmode(cull_clockwise);
 } else {
@@ -112,3 +116,6 @@ if (!mouse_check_button(mb_right) && !mouse_check_button(mb_middle) && !palette_
         }
     }
 }
+
+// Back to smooth for anything drawn after the tiles
+gpu_set_tex_filter(true);

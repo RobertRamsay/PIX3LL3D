@@ -1,6 +1,7 @@
 /// @desc STEP EVENT of obj_editor
 
-// --- MENU BAR (runs first so a menu click this frame drives the shortcuts below) ---
+// --- UI SCALE + MENU BAR (menu runs first so a click this frame drives the shortcuts below) ---
+ui_update_gui_size();
 menu_update();
 
 // --- PIXEL EDITOR (takes over all input while open) ---
@@ -225,10 +226,22 @@ if (mouse_wheel_down()) {
 }
 cam_dist = clamp(cam_dist, 2, 100);
 
-// --- TEXTURE FILTER TOGGLE ---
+// --- TILE TEXTURE FILTER TOGGLE (only affects placed tiles + ghost; see Draw) ---
 if (keyboard_check_pressed(ord("T")) || menu_action == "tex_filter") {
     tex_filter_on = !tex_filter_on;
-    gpu_set_tex_filter(tex_filter_on);
+}
+
+// --- ANTI-ALIASING TOGGLE ---
+if (menu_action == "aa_toggle") {
+    aa_on = !aa_on;
+    if (aa_level == 0) {
+        aa_on = false; // hardware offers no MSAA levels
+    }
+    if (aa_on) {
+        display_reset(aa_level, true);
+    } else {
+        display_reset(0, true);
+    }
 }
 
 // --- BACKFACE CULLING TOGGLE ---

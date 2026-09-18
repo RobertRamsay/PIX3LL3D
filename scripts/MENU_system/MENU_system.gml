@@ -8,6 +8,27 @@
 /// "" = info-only line), mode ("all", "3d" or "pe" - which editor shows it).
 /// A label of "-" draws a separator.
 
+/// @desc Keep the GUI layer at a fixed logical height (ui_ref_h, 1080) so the
+/// menus and panels are the same physical size on a 1080p or a 4K window.
+/// Width follows the window's aspect ratio. Only resets when the window changes.
+function ui_update_gui_size()
+{
+    var _ww = window_get_width();
+    var _wh = window_get_height();
+    if (_ww <= 0 || _wh <= 0)
+    {
+        return; // minimised
+    }
+    if (_ww == ui_last_w && _wh == ui_last_h)
+    {
+        return;
+    }
+    ui_last_w = _ww;
+    ui_last_h = _wh;
+    var _scale = _wh / ui_ref_h;
+    display_set_gui_size(round(_ww / _scale), ui_ref_h);
+}
+
 /// @desc Is this menu / item shown in the current editor mode?
 function menu_mode_visible(_mode)
 {
@@ -256,6 +277,7 @@ function menu_item_checked(_act)
     {
         case "grid":          return grid_visible;
         case "tex_filter":    return tex_filter_on;
+        case "aa_toggle":     return aa_on;
         case "cull":          return cull_on;
         case "tiles_builtin": return !global.tile_is_custom;
         case "tiles_custom":  return global.tile_is_custom;

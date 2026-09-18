@@ -1,0 +1,164 @@
+From 7690cce9917b02ab5ec981a469c5227693d3bc3c Mon Sep 17 00:00:00 2001
+From: Claude <claude@local>
+Date: Fri, 18 Sep 2026 11:01:44 +0000
+Subject: [PATCH] Resolution-independent UI, tile-only texture filter, MSAA
+
+---
+ objects/obj_editor/Create_0.gml     | 22 +++++++++++++++++++++-
+ objects/obj_editor/Draw_0.gml       |  9 ++++++++-
+ objects/obj_editor/Step_0.gml       | 19 ++++++++++++++++---
+ scripts/MENU_system/MENU_system.gml | 22 ++++++++++++++++++++++
+ 4 files changed, 67 insertions(+), 5 deletions(-)
+
+diff --git a/objects/obj_editor/Create_0.gml b/objects/obj_editor/Create_0.gml
+index 7b9844c..44a8ae9 100644
+--- a/objects/obj_editor/Create_0.gml
++++ b/objects/obj_editor/Create_0.gml
+@@ -9,6 +9,25 @@ gpu_set_tex_filter(tex_filter_on);
+ cull_on = false;
+ gpu_set_cullmode(cull_noculling);
+ grid_visible = true;
++
++// --- UI SCALE (GUI is a fixed 1080-high logical layer; see ui_update_gui_size) ---
++ui_ref_h = 1080;
++ui_last_w = 0;
++ui_last_h = 0;
++
++// --- ANTI-ALIASING (MSAA smooths grid lines and polygon edges) ---
++// MSAA only applies to the back buffer, so draw straight to it.
++application_surface_enable(false);
++aa_level = 0;
++if ((display_aa & 8) != 0) {
++    aa_level = 8;
++} else if ((display_aa & 4) != 0) {
++    aa_level = 4;
++} else if ((display_aa & 2) != 0) {
++    aa_level = 2;
++}
++aa_on = (aa_level > 0);
++display_reset(aa_level, true);
+ // --- CAMERA VARIABLES ---
+ cam_dist = 12;
+ cam_pitch = 20.7;
+@@ -171,7 +190,8 @@ menu_defs = [
+             { label: "Reset view",       key: "Home", act: "reset_view", mode: "3d" },
+             { label: "-",                key: "",     act: "",           mode: "3d" },
+             { label: "Grid",             key: "G",    act: "grid",       mode: "3d" },
+-            { label: "Texture filter",   key: "T",    act: "tex_filter", mode: "3d" },
++            { label: "Tile texture filter", key: "T", act: "tex_filter", mode: "3d" },
++            { label: "Anti-aliasing (MSAA)", key: "", act: "aa_toggle",  mode: "3d" },
+             { label: "Backface culling", key: "B",    act: "cull",       mode: "3d" },
+             { label: "Fit sheet",        key: "Home",   act: "pe_fit",        mode: "pe" },
+             { label: "Zoom in",          key: "=",      act: "pe_zoom_in",    mode: "pe" },
+diff --git a/objects/obj_editor/Draw_0.gml b/objects/obj_editor/Draw_0.gml
+index 95d0a8e..bdf1ff6 100644
+--- a/objects/obj_editor/Draw_0.gml
++++ b/objects/obj_editor/Draw_0.gml
+@@ -20,6 +20,9 @@ camera_set_view_mat(camera_get_active(), _view);
+ camera_set_proj_mat(camera_get_active(), _proj);
+ camera_apply(camera_get_active());
+ 
++// Skybox and grid always draw smooth; the T toggle only applies to tile textures
++gpu_set_tex_filter(true);
++
+ // --- SKYBOX ENCLOSURE (drawn first, no culling, no depth write) ---
+ gpu_set_cullmode(cull_noculling);
+ gpu_set_zwriteenable(false);
+@@ -61,7 +64,8 @@ if (grid_visible) {
+ 	}
+ }
+ 
+-// --- 3. DRAW PLACED TILES ---
++// --- 3. DRAW PLACED TILES (filter follows the T toggle) ---
++gpu_set_tex_filter(tex_filter_on);
+ if (cull_on) {
+     gpu_set_cullmode(cull_clockwise);
+ } else {
+@@ -112,3 +116,6 @@ if (!mouse_check_button(mb_right) && !mouse_check_button(mb_middle) && !palette_
+         }
+     }
+ }
++
++// Back to smooth for anything drawn after the tiles
++gpu_set_tex_filter(true);
+diff --git a/objects/obj_editor/Step_0.gml b/objects/obj_editor/Step_0.gml
+index cbc3ae8..b6b80b0 100644
+--- a/objects/obj_editor/Step_0.gml
++++ b/objects/obj_editor/Step_0.gml
+@@ -1,6 +1,7 @@
+ /// @desc STEP EVENT of obj_editor
+ 
+-// --- MENU BAR (runs first so a menu click this frame drives the shortcuts below) ---
++// --- UI SCALE + MENU BAR (menu runs first so a click this frame drives the shortcuts below) ---
++ui_update_gui_size();
+ menu_update();
+ 
+ // --- PIXEL EDITOR (takes over all input while open) ---
+@@ -225,10 +226,22 @@ if (mouse_wheel_down()) {
+ }
+ cam_dist = clamp(cam_dist, 2, 100);
+ 
+-// --- TEXTURE FILTER TOGGLE ---
++// --- TILE TEXTURE FILTER TOGGLE (only affects placed tiles + ghost; see Draw) ---
+ if (keyboard_check_pressed(ord("T")) || menu_action == "tex_filter") {
+     tex_filter_on = !tex_filter_on;
+-    gpu_set_tex_filter(tex_filter_on);
++}
++
++// --- ANTI-ALIASING TOGGLE ---
++if (menu_action == "aa_toggle") {
++    aa_on = !aa_on;
++    if (aa_level == 0) {
++        aa_on = false; // hardware offers no MSAA levels
++    }
++    if (aa_on) {
++        display_reset(aa_level, true);
++    } else {
++        display_reset(0, true);
++    }
+ }
+ 
+ // --- BACKFACE CULLING TOGGLE ---
+diff --git a/scripts/MENU_system/MENU_system.gml b/scripts/MENU_system/MENU_system.gml
+index 01f7905..88c53cb 100644
+--- a/scripts/MENU_system/MENU_system.gml
++++ b/scripts/MENU_system/MENU_system.gml
+@@ -8,6 +8,27 @@
+ /// "" = info-only line), mode ("all", "3d" or "pe" - which editor shows it).
+ /// A label of "-" draws a separator.
+ 
++/// @desc Keep the GUI layer at a fixed logical height (ui_ref_h, 1080) so the
++/// menus and panels are the same physical size on a 1080p or a 4K window.
++/// Width follows the window's aspect ratio. Only resets when the window changes.
++function ui_update_gui_size()
++{
++    var _ww = window_get_width();
++    var _wh = window_get_height();
++    if (_ww <= 0 || _wh <= 0)
++    {
++        return; // minimised
++    }
++    if (_ww == ui_last_w && _wh == ui_last_h)
++    {
++        return;
++    }
++    ui_last_w = _ww;
++    ui_last_h = _wh;
++    var _scale = _wh / ui_ref_h;
++    display_set_gui_size(round(_ww / _scale), ui_ref_h);
++}
++
+ /// @desc Is this menu / item shown in the current editor mode?
+ function menu_mode_visible(_mode)
+ {
+@@ -256,6 +277,7 @@ function menu_item_checked(_act)
+     {
+         case "grid":          return grid_visible;
+         case "tex_filter":    return tex_filter_on;
++        case "aa_toggle":     return aa_on;
+         case "cull":          return cull_on;
+         case "tiles_builtin": return !global.tile_is_custom;
+         case "tiles_custom":  return global.tile_is_custom;
+-- 
+2.43.0
+
