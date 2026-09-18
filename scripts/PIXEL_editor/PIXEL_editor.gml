@@ -59,7 +59,20 @@ function pe_open_editor()
     }
     pe_buf = buffer_create(pe_buf_size, buffer_fixed, 1);
     buffer_get_surface(pe_buf, pe_surf, 0);
-    pe_surf_stale = false;
+
+    // Drawing into a surface from the Step event can come out mirrored
+    // (the room camera still holds the 3D view/projection the Draw event set).
+    // Measure how it lands right now and undo it, so the sheet is always upright.
+    var _orient = pe_surface_orientation();
+    if (_orient[1])
+    {
+        pe_flip_buffer_region(pe_buf, pe_w, 0, 0, pe_w, pe_h, false);
+    }
+    if (_orient[0])
+    {
+        pe_flip_buffer_region(pe_buf, pe_w, 0, 0, pe_w, pe_h, true);
+    }
+    pe_surf_stale = true;
 
     // Undo depth scales with sheet size (roughly 64 MB of snapshots max)
     pe_undo_clear();
@@ -92,6 +105,56 @@ function pe_open_editor()
     pe_layout();
     pe_fit_view();
     pe_notify("Editing tileset: " + string(pe_frame_count) + " tiles, " + string(pe_cell) + "px cells");
+}
+
+/// @desc Draw a mark in the top-left of a small surface and see where it lands.
+/// Returns [flip_x, flip_y] for surface drawing in the current matrix state.
+function pe_surface_orientation()
+{
+    var _s = surface_create(4, 4);
+    surface_set_target(_s);
+    draw_clear_alpha(c_black, 0);
+    gpu_set_blendenable(false);
+    gpu_set_alphatestenable(false);
+    draw_set_colour(c_white);
+    draw_set_alpha(1);
+    draw_rectangle(0, 0, 1, 1, false); // top-left quadrant only
+    gpu_set_blendenable(true);
+    gpu_set_alphatestenable(true);
+    surface_reset_target();
+
+    var _b = buffer_create(4 * 4 * 4, buffer_fixed, 1);
+    buffer_get_surface(_b, _s, 0);
+    var _tl = (buffer_peek(_b, (0 * 4 + 0) * 4, buffer_u32) >> 24) & 255;
+    var _tr = (buffer_peek(_b, (0 * 4 + 3) * 4, buffer_u32) >> 24) & 255;
+    var _bl = (buffer_peek(_b, (3 * 4 + 0) * 4, buffer_u32) >> 24) & 255;
+    var _br = (buffer_peek(_b, (3 * 4 + 3) * 4, buffer_u32) >> 24) & 255;
+    buffer_delete(_b);
+    surface_free(_s);
+
+    var _flip_x = false;
+    var _flip_y = false;
+    if (_tl == 0)
+    {
+        if (_tr > 0)
+        {
+            _flip_x = true;
+        }
+        else if (_bl > 0)
+        {
+            _flip_y = true;
+        }
+        else if (_br > 0)
+        {
+            _flip_x = true;
+            _flip_y = true;
+        }
+    }
+    if (_flip_x || _flip_y)
+    {
+        show_debug_message("Pixel editor: surface draw was flipped (x=" + string(_flip_x) + ", y=" + string(_flip_y) + "), corrected.");
+    }
+    return [_flip_x, _flip_y];
 }
 
 /// @desc Commit, apply to tiles if edited, free resources and return to 3D.
