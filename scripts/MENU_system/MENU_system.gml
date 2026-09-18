@@ -26,6 +26,10 @@ function menu_update()
     menu_click_consumed = false;
 
     menu_mode = "3d";
+    if (pe_open)
+    {
+        menu_mode = "pe";
+    }
 
     draw_set_font(-1);
 
@@ -243,6 +247,11 @@ function menu_find_hover_item(_mx, _my)
 /// @desc Tick state for toggle-style items.
 function menu_item_checked(_act)
 {
+    if (string_copy(_act, 1, 5) == "tool_")
+    {
+        return (("tool_" + pe_tool) == _act);
+    }
+
     switch (_act)
     {
         case "grid":          return grid_visible;
@@ -250,6 +259,10 @@ function menu_item_checked(_act)
         case "cull":          return cull_on;
         case "tiles_builtin": return !global.tile_is_custom;
         case "tiles_custom":  return global.tile_is_custom;
+        case "pe_toggle":     return pe_open;
+        case "pe_pixel_grid": return pe_show_pixel_grid;
+        case "pe_tile_grid":  return pe_show_tile_grid;
+        case "pe_tile_clip":  return pe_tile_clip;
     }
     return false;
 }
@@ -292,6 +305,10 @@ function menu_draw()
 
     // Mode label on the right of the bar
     var _mode_text = "3D EDITOR  |  Plane: " + active_plane;
+    if (pe_open)
+    {
+        _mode_text = "PIXEL EDITOR  |  " + pe_tool_label(pe_tool);
+    }
     draw_set_halign(fa_right);
     draw_set_colour(c_ltgray);
     draw_text(_gw - 10, menu_bar_h * 0.5, _mode_text);

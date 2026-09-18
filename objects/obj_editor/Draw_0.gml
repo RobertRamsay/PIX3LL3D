@@ -3,6 +3,11 @@
 
 draw_clear(make_color_rgb(40, 60, 170));
 
+// Pixel editor covers the whole screen from Draw GUI
+if (pe_open) {
+    exit;
+}
+
 // --- 1. BUILD CAMERA MATRICES ---
 var _cx = cam_look_x + dcos(cam_yaw) * dcos(cam_pitch) * cam_dist;
 var _cy = cam_look_y + dsin(cam_yaw) * dcos(cam_pitch) * cam_dist;

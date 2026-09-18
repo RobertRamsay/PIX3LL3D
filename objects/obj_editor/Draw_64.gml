@@ -1,5 +1,13 @@
 /// @desc DRAW GUI EVENT of obj_editor
 
+// --- PIXEL EDITOR (full screen, menu bar on top) ---
+if (pe_open)
+{
+    pe_draw();
+    menu_draw();
+    exit;
+}
+
 gpu_set_cullmode(cull_noculling);
 var _hud_x = 20;
 var _hud_y = 20 + menu_bar_h; // sits below the menu bar
@@ -54,6 +62,16 @@ draw_text(_cx2 + _az_x + 4, _cy2 + _az_y - 8, "Z");
 
 draw_set_color(c_black);
 draw_text(_hud_x + 10, _hud_y + 85, "Plane: " + active_plane);
+
+// --- UNSAVED TEXTURE NOTICE ---
+if (pe_png_dirty)
+{
+    gpu_set_tex_filter(true);
+    draw_set_colour(c_yellow);
+    draw_text(_hud_x, _hud_y + 122, "Texture edits not saved to PNG (Tileset > Pixel editor > Ctrl+S)");
+    draw_set_colour(c_white);
+    gpu_set_tex_filter(tex_filter_on);
+}
 
 // --- TILE PALETTE OVERLAY ---
 if (palette_open) {

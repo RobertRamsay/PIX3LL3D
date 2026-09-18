@@ -3,6 +3,19 @@
 // --- MENU BAR (runs first so a menu click this frame drives the shortcuts below) ---
 menu_update();
 
+// --- PIXEL EDITOR (takes over all input while open) ---
+if (pe_open)
+{
+    pe_step();
+    exit;
+}
+
+if ((keyboard_check_pressed(ord("P")) && !keyboard_check(vk_control)) || menu_action == "pe_toggle")
+{
+    pe_open_editor();
+    exit;
+}
+
 if ((keyboard_check_pressed(vk_escape) && !menu_esc_consumed) || menu_action == "quit")
 {
     game_end();

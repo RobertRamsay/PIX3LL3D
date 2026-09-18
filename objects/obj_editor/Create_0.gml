@@ -146,7 +146,12 @@ menu_defs = [
             { label: "Export OBJ...",    key: "Alt+Shift+S",  act: "export_obj",    mode: "3d" },
             { label: "-",                key: "",             act: "",              mode: "3d" },
             { label: "Restart",          key: "Enter",        act: "restart",       mode: "3d" },
-            { label: "Quit",             key: "Esc",          act: "quit",          mode: "3d" }
+            { label: "Quit",             key: "Esc",          act: "quit",          mode: "3d" },
+            { label: "Save texture PNG",      key: "Ctrl+S",       act: "pe_save_png",    mode: "pe" },
+            { label: "Save texture PNG as...", key: "Ctrl+Shift+S", act: "pe_save_png_as", mode: "pe" },
+            { label: "-",                     key: "",             act: "",               mode: "pe" },
+            { label: "Apply to tiles",        key: "Enter",        act: "pe_apply",       mode: "pe" },
+            { label: "Close pixel editor",    key: "P / Esc",      act: "pe_close",       mode: "pe" }
         ]
     },
     {
@@ -167,7 +172,13 @@ menu_defs = [
             { label: "-",                key: "",     act: "",           mode: "3d" },
             { label: "Grid",             key: "G",    act: "grid",       mode: "3d" },
             { label: "Texture filter",   key: "T",    act: "tex_filter", mode: "3d" },
-            { label: "Backface culling", key: "B",    act: "cull",       mode: "3d" }
+            { label: "Backface culling", key: "B",    act: "cull",       mode: "3d" },
+            { label: "Fit sheet",        key: "Home",   act: "pe_fit",        mode: "pe" },
+            { label: "Zoom in",          key: "=",      act: "pe_zoom_in",    mode: "pe" },
+            { label: "Zoom out",         key: "-",      act: "pe_zoom_out",   mode: "pe" },
+            { label: "-",                key: "",       act: "",              mode: "pe" },
+            { label: "Pixel grid",       key: "Ctrl+G", act: "pe_pixel_grid", mode: "pe" },
+            { label: "Tile grid",        key: "Ctrl+T", act: "pe_tile_grid",  mode: "pe" }
         ]
     },
     {
@@ -188,7 +199,45 @@ menu_defs = [
             { label: "Import PNG...",     key: "Ctrl+I", act: "tiles_import",  mode: "3d" },
             { label: "-",                 key: "",       act: "",              mode: "3d" },
             { label: "Built-in tileset",  key: "F1",     act: "tiles_builtin", mode: "3d" },
-            { label: "Custom tileset",    key: "F2",     act: "tiles_custom",  mode: "3d" }
+            { label: "Custom tileset",    key: "F2",     act: "tiles_custom",  mode: "3d" },
+            { label: "-",                 key: "",       act: "",              mode: "3d" },
+            { label: "Pixel editor",      key: "P",      act: "pe_toggle",     mode: "3d" }
+        ]
+    },
+    {
+        title: "Tools", mode: "pe",
+        items: [
+            { label: "Pencil",         key: "B",       act: "tool_pencil",       mode: "pe" },
+            { label: "Eraser",         key: "E",       act: "tool_eraser",       mode: "pe" },
+            { label: "Fill",           key: "G",       act: "tool_fill",         mode: "pe" },
+            { label: "Replace colour", key: "Shift+G", act: "tool_replace",      mode: "pe" },
+            { label: "Line",           key: "L",       act: "tool_line",         mode: "pe" },
+            { label: "Rectangle",      key: "U",       act: "tool_rect",         mode: "pe" },
+            { label: "Filled rect",    key: "Shift+U", act: "tool_rect_fill",    mode: "pe" },
+            { label: "Ellipse",        key: "O",       act: "tool_ellipse",      mode: "pe" },
+            { label: "Filled ellipse", key: "Shift+O", act: "tool_ellipse_fill", mode: "pe" },
+            { label: "Eyedropper",     key: "I / Alt", act: "tool_picker",       mode: "pe" },
+            { label: "Select",         key: "M",       act: "tool_select",       mode: "pe" },
+            { label: "-",              key: "",        act: "",                  mode: "pe" },
+            { label: "Swap colours",   key: "X",       act: "pe_swap_colours",   mode: "pe" },
+            { label: "Brush smaller",  key: "[",       act: "pe_brush_down",     mode: "pe" },
+            { label: "Brush larger",   key: "]",       act: "pe_brush_up",       mode: "pe" },
+            { label: "Clip to tile",   key: "K",       act: "pe_tile_clip",      mode: "pe" }
+        ]
+    },
+    {
+        title: "Select", mode: "pe",
+        items: [
+            { label: "Select all", key: "Ctrl+A", act: "pe_select_all", mode: "pe" },
+            { label: "Deselect",   key: "Ctrl+D", act: "pe_deselect",   mode: "pe" },
+            { label: "-",          key: "",       act: "",              mode: "pe" },
+            { label: "Copy",       key: "Ctrl+C", act: "pe_copy",       mode: "pe" },
+            { label: "Cut",        key: "Ctrl+X", act: "pe_cut",        mode: "pe" },
+            { label: "Paste",      key: "Ctrl+V", act: "pe_paste",      mode: "pe" },
+            { label: "Delete",     key: "Del",    act: "pe_delete",     mode: "pe" },
+            { label: "-",          key: "",       act: "",              mode: "pe" },
+            { label: "Flip H (selection or tile)", key: "H", act: "pe_flip_h", mode: "pe" },
+            { label: "Flip V (selection or tile)", key: "V", act: "pe_flip_v", mode: "pe" }
         ]
     },
     {
@@ -200,7 +249,169 @@ menu_defs = [
             { label: "Pick brush",      key: "Space+drag",   act: "", mode: "3d" },
             { label: "Pan",             key: "MMB drag",     act: "", mode: "3d" },
             { label: "Orbit",           key: "Alt+MMB drag", act: "", mode: "3d" },
-            { label: "Zoom",            key: "Wheel",        act: "", mode: "3d" }
+            { label: "Zoom",            key: "Wheel",        act: "", mode: "3d" },
+            { label: "Paint primary",   key: "LMB",              act: "", mode: "pe" },
+            { label: "Paint secondary", key: "RMB",              act: "", mode: "pe" },
+            { label: "Eyedropper",      key: "Alt (hold)",       act: "", mode: "pe" },
+            { label: "Pan",             key: "MMB / Space+drag", act: "", mode: "pe" },
+            { label: "Zoom",            key: "Wheel",            act: "", mode: "pe" },
+            { label: "Move selection",  key: "Select tool drag", act: "", mode: "pe" },
+            { label: "Store colour",    key: "Shift+click swatch", act: "", mode: "pe" },
+            { label: "Commit / clear",  key: "Esc",              act: "", mode: "pe" }
         ]
     }
 ];
+
+// --- PIXEL EDITOR (texture sheet editing; see PIXEL_editor) ---
+pe_open = false;
+pe_surf = -1;               // display copy of the sheet
+pe_buf = -1;                // RGBA sheet data (source of truth)
+pe_buf_size = 0;
+pe_surf_stale = true;
+pe_w = 0;                   // sheet size in pixels
+pe_h = 0;
+pe_cell = 16;               // tile cell size
+pe_cols = 1;                // tiles per row (matches palette_cols)
+pe_rows = 1;
+pe_frame_count = 0;
+pe_dirty = false;           // edited since last Apply
+pe_png_dirty = false;       // edited since last PNG save
+pe_png_path = "";
+
+// View
+pe_zoom_levels = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32];
+pe_zoom = 8;
+pe_view_x = 0;              // GUI position of the sheet's top-left
+pe_view_y = 0;
+pe_panning = false;
+pe_pan_btn = mb_middle;
+pe_pan_mx = 0;
+pe_pan_my = 0;
+pe_pan_vx = 0;
+pe_pan_vy = 0;
+pe_show_pixel_grid = true;
+pe_show_tile_grid = true;
+pe_tile_clip = false;       // keep strokes/fills inside the tile they start in
+
+// Tools
+pe_tool = "pencil";
+pe_brush = 1;
+pe_brush_max = 16;
+pe_tools = [
+    { act: "tool_pencil",       label: "Pencil",       key: "B" },
+    { act: "tool_eraser",       label: "Eraser",       key: "E" },
+    { act: "tool_fill",         label: "Fill",         key: "G" },
+    { act: "tool_replace",      label: "Replace",      key: "Sh+G" },
+    { act: "tool_line",         label: "Line",         key: "L" },
+    { act: "tool_rect",         label: "Rect",         key: "U" },
+    { act: "tool_rect_fill",    label: "Rect fill",    key: "Sh+U" },
+    { act: "tool_ellipse",      label: "Ellipse",      key: "O" },
+    { act: "tool_ellipse_fill", label: "Ellipse fill", key: "Sh+O" },
+    { act: "tool_picker",       label: "Eyedropper",   key: "I" },
+    { act: "tool_select",       label: "Select",       key: "M" }
+];
+pe_stroking = false;
+pe_picking = false;
+pe_stroke_btn = mb_left;
+pe_stroke_u32 = 0;
+pe_start_x = 0;
+pe_start_y = 0;
+pe_cur_x = 0;
+pe_cur_y = 0;
+pe_last_x = 0;
+pe_last_y = 0;
+pe_hover_x = -1;
+pe_hover_y = -1;
+pe_mouse_in_view = false;
+pe_lim_x0 = 0;              // paint limits for the current operation
+pe_lim_y0 = 0;
+pe_lim_x1 = 0;
+pe_lim_y1 = 0;
+
+// Colours (primary / secondary + HSV picker state, 0..255)
+pe_col = c_white;
+pe_alpha = 255;
+pe_col2 = c_black;
+pe_alpha2 = 255;
+pe_hue = 0;
+pe_sat = 0;
+pe_val = 255;
+pe_drag_ui = "";            // "sv", "hue", "alpha" while dragging a colour control
+pe_palette = [];            // DawnBringer 32
+var _db32 = [
+    $000000, $222034, $45283C, $663931, $8F563B, $DF7126, $D9A066, $EEC39A,
+    $FBF236, $99E550, $6ABE30, $37946E, $4B692F, $524B24, $323C39, $3F3F74,
+    $306082, $5B6EE1, $639BFF, $5FCDE4, $CBDBFC, $FFFFFF, $9BADB7, $847E87,
+    $696A6A, $595652, $76428A, $AC3232, $D95763, $D77BBA, $8F974A, $8A6F30
+];
+for (var _pi = 0; _pi < array_length(_db32); _pi++)
+{
+    array_push(pe_palette, make_color_rgb((_db32[_pi] >> 16) & 255, (_db32[_pi] >> 8) & 255, _db32[_pi] & 255));
+}
+
+// Undo
+pe_undo = [];               // sheet snapshot buffers
+pe_redo = [];
+pe_undo_max = 50;
+
+// Selection / floating pixels / clipboard
+pe_sel_active = false;
+pe_sel_x0 = 0;              // [x0, x1) x [y0, y1) in sheet pixels
+pe_sel_y0 = 0;
+pe_sel_x1 = 0;
+pe_sel_y1 = 0;
+pe_sel_mode = "";           // "", "marquee", "move"
+pe_move_off_x = 0;
+pe_move_off_y = 0;
+pe_float_active = false;
+pe_float_buf = -1;
+pe_float_surf = -1;
+pe_float_stale = true;
+pe_float_w = 0;
+pe_float_h = 0;
+pe_float_x = 0;
+pe_float_y = 0;
+pe_clip_buf = -1;
+pe_clip_w = 0;
+pe_clip_h = 0;
+
+// Layout (GUI pixels; recomputed every frame in pe_layout)
+pe_tool_w = 150;
+pe_panel_w = 220;
+pe_opt_h = 30;
+pe_status_h = 24;
+pe_vx0 = 0;
+pe_vy0 = 0;
+pe_vx1 = 0;
+pe_vy1 = 0;
+pe_buttons = [];
+pe_brush_label_y = 0;
+pe_brush_value_y = 0;
+pe_swatch_x = 0;
+pe_swatch_y = 0;
+pe_sv_x = 0;
+pe_sv_y = 0;
+pe_sv_size = 200;
+pe_hue_x = 0;
+pe_hue_y = 0;
+pe_alpha_x = 0;
+pe_alpha_y = 0;
+pe_bar_w = 200;
+pe_bar_h = 14;
+pe_pal_x = 0;
+pe_pal_y = 0;
+pe_pal_cols = 8;
+pe_pal_size = 22;
+pe_pal_gap = 3;
+pe_info_y = 0;
+pe_checker_surf = -1;
+pe_checker_w = 0;
+pe_checker_h = 0;
+pe_message = "";
+pe_message_timer = 0;
+pe_col_bg = make_color_rgb(24, 25, 30);
+pe_col_panel = make_color_rgb(34, 36, 44);
+pe_col_button = make_color_rgb(46, 49, 60);
+pe_col_check_a = make_color_rgb(90, 90, 96);
+pe_col_check_b = make_color_rgb(120, 120, 128);
+pe_col_tile_grid = make_color_rgb(255, 210, 90);
