@@ -13,7 +13,9 @@
     {"$GMFolder":"","%Name":"Functions","folderPath":"folders/Functions.yy","name":"Functions","resourceType":"GMFolder","resourceVersion":"2.0",},
   ],
   "ForcedPrefabProjectReferences":[],
-  "IncludedFiles":[],
+  "IncludedFiles":[
+    {"$GMIncludedFile":"","%Name":"version.txt","CopyToMask":-1,"filePath":"datafiles","name":"version.txt","resourceType":"GMIncludedFile","resourceVersion":"2.0",},
+  ],
   "isEcma":false,
   "LibraryEmitters":[],
   "MetaData":{
@@ -21,6 +23,7 @@
   },
   "name":"PIX3LL3D_V008",
   "resources":[
+    {"id":{"name":"ABOUT_system","path":"scripts/ABOUT_system/ABOUT_system.yy",},},
     {"id":{"name":"obj_editor","path":"objects/obj_editor/obj_editor.yy",},},
     {"id":{"name":"Room1","path":"rooms/Room1/Room1.yy",},},
     {"id":{"name":"brush_rotate_cw","path":"scripts/brush_rotate_cw/brush_rotate_cw.yy",},},

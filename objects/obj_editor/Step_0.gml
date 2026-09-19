@@ -4,6 +4,13 @@
 ui_update_gui_size();
 menu_update();
 
+// --- ABOUT PANEL (modal: it eats all input while it is open) ---
+about_update();
+if (about_visible)
+{
+    exit;
+}
+
 // --- PIXEL EDITOR (takes over all input while open) ---
 if (pe_open)
 {

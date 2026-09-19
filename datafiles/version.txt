@@ -1,0 +1,5 @@
+# PIX3LL3D version file.
+# Edit the version line below when a new build goes live on itch.io, then commit it.
+# The app reads this file for its own version AND fetches the copy on GitHub to
+# see whether a newer release exists. Lines starting with # are ignored.
+1.0.0

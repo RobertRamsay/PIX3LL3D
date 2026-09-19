@@ -138,6 +138,29 @@ palette_y = 0;
 plane_offset_XY = { left_right: 0, up_down: 0, depth: 0 };
 plane_offset_XZ = { left_right: 0, up_down: 0, depth: 0 };
 plane_offset_YZ = { left_right: 0, up_down: 0, depth: 0 };
+// --- ABOUT / VERSION (see ABOUT_system) ---
+// global.app_version comes from the included file version.txt
+version_local_load();
+about_visible = false;        // true while the modal About panel is up
+about_state = "idle";         // "idle", "checking", "current", "update", "failed"
+about_message = "";           // status line shown when a check fails
+about_ver_remote = "";        // version reported by the remote version.txt
+about_http_id = -1;           // id of the in-flight http_get (-1 = none)
+about_x = 0;                  // panel rect (set by about_layout)
+about_y = 0;
+about_w = 0;
+about_h = 0;
+about_btn_check = [0, 0, 0, 0];   // button rects: [x1, y1, x2, y2]
+about_btn_itch = [0, 0, 0, 0];
+about_btn_close = [0, 0, 0, 0];
+about_hover = "";             // "", "check", "itch" or "close"
+
+// Quiet check at launch; the result only shows up if there is something newer
+if (ABOUT_CHECK_ON_START)
+{
+    about_check_update();
+}
+
 // --- MENU BAR (replaces the old shortcuts panel; see MENU_system) ---
 menu_bar_h = 22;            // height of the top bar in GUI pixels
 menu_title_pad = 10;        // horizontal padding around each title
@@ -294,6 +317,17 @@ menu_defs = [
             { label: "Move selection",  key: "Select tool drag", act: "", mode: "pe" },
             { label: "Store colour",    key: "Shift+click swatch", act: "", mode: "pe" },
             { label: "Commit / clear",  key: "Esc",              act: "", mode: "pe" }
+        ]
+    },
+    {
+        title: "About", mode: "all",
+        items: [
+            { label: "Credits...",                 key: "F12", act: "about_show",  mode: "all" },
+            { label: "Version / check updates...", key: "",    act: "about_check", mode: "all" },
+            { label: "-",                          key: "",    act: "",            mode: "all" },
+            { label: "Version " + global.app_version, key: "", act: "",            mode: "all" },
+            { label: "-",                          key: "",    act: "",            mode: "all" },
+            { label: ABOUT_APP_NAME + " on itch.io", key: "",  act: "about_itch",  mode: "all" }
         ]
     }
 ];
