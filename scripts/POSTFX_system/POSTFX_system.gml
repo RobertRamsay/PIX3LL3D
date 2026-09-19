@@ -34,8 +34,9 @@ function postfx_defaults()
         ssao_bias: 0.02,        // world units; stops a surface occluding itself
         ssao_intensity: 1.00,
         ssao_power: 1.60,
-        ssao_samples: 16,
-        ssao_blur: 1.50,        // blur tap spacing in pixels
+        ssao_samples: 8,        // each one is a depth fetch: the main AO cost
+        ssao_res: 0.50,         // AO buffer scale; 0.5 = a quarter of the pixels
+        ssao_blur: 1.00,        // tap spacing in pixels; 0 skips the blur loop
         ssao_tint: 0.25,        // 0 neutral black, 1 cool blue
 
         // CRT
@@ -43,7 +44,7 @@ function postfx_defaults()
         crt_scan: 0.35,
         crt_lines: 540,
         crt_mask: 0.30,
-        crt_glow: 0.50,
+        crt_glow: 0.00,         // 8 extra fetches per pixel when above zero
         crt_chroma: 0.60,
         crt_vignette: 0.45,
         crt_bright: 1.12,
@@ -62,6 +63,7 @@ function postfx_slider_defs()
         { key: "ssao_intensity", label: "Intensity",     lo: 0.00, hi: 2.00, step: 0,   group: "AMBIENT OCCLUSION" },
         { key: "ssao_power",     label: "Falloff power", lo: 0.50, hi: 4.00, step: 0,   group: "AMBIENT OCCLUSION" },
         { key: "ssao_samples",   label: "Samples",       lo: 4,    hi: 32,   step: 1,   group: "AMBIENT OCCLUSION" },
+        { key: "ssao_res",       label: "Buffer scale",  lo: 0.25, hi: 1.00, step: 0.05, group: "AMBIENT OCCLUSION" },
         { key: "ssao_blur",      label: "Blur",          lo: 0.00, hi: 4.00, step: 0,   group: "AMBIENT OCCLUSION" },
         { key: "ssao_tint",      label: "Cool tint",     lo: 0.00, hi: 1.00, step: 0,   group: "AMBIENT OCCLUSION" },
 
@@ -131,20 +133,49 @@ function postfx_reset()
     fx = postfx_defaults();
 }
 
+/// @desc Set only the parameters that cost frame time, leaving the look alone.
+/// "low", "medium" or "high".
+function postfx_preset(_name)
+{
+    if (_name == "low")
+    {
+        fx.ssao_samples = 6;
+        fx.ssao_res = 0.25;
+        fx.ssao_blur = 1.00;
+        fx.crt_glow = 0.00;
+        return;
+    }
+
+    if (_name == "medium")
+    {
+        fx.ssao_samples = 10;
+        fx.ssao_res = 0.50;
+        fx.ssao_blur = 1.25;
+        fx.crt_glow = 0.35;
+        return;
+    }
+
+    fx.ssao_samples = 24;
+    fx.ssao_res = 1.00;
+    fx.ssao_blur = 2.00;
+    fx.crt_glow = 0.60;
+}
+
 // ============================================================
 //  SURFACES
 // ============================================================
 
-/// @desc Make sure the working surfaces exist at the current resolution.
-function postfx_surfaces_ensure(_w, _h)
+/// @desc Make sure the working surfaces exist. The AO buffer can be smaller
+/// than the scene buffer - it is upsampled bilinearly in the composite pass.
+function postfx_surfaces_ensure(_ao_w, _ao_h, _w, _h)
 {
     if (!surface_exists(fx_surf_ao))
     {
-        fx_surf_ao = surface_create(_w, _h);
+        fx_surf_ao = surface_create(_ao_w, _ao_h);
     }
-    else if (surface_get_width(fx_surf_ao) != _w || surface_get_height(fx_surf_ao) != _h)
+    else if (surface_get_width(fx_surf_ao) != _ao_w || surface_get_height(fx_surf_ao) != _ao_h)
     {
-        surface_resize(fx_surf_ao, _w, _h);
+        surface_resize(fx_surf_ao, _ao_w, _ao_h);
     }
 
     if (!surface_exists(fx_surf_scene))
@@ -223,7 +254,13 @@ function postfx_draw_scene()
 
     if (fx_ssao_on)
     {
-        postfx_surfaces_ensure(_sw, _sh);
+        // The AO buffer runs at a fraction of the scene resolution. At 0.5 that
+        // is a quarter of the pixels, so a quarter of the depth fetches.
+        var _scale = clamp(fx.ssao_res, 0.25, 1);
+        var _aow = max(round(_sw * _scale), 1);
+        var _aoh = max(round(_sh * _scale), 1);
+
+        postfx_surfaces_ensure(_aow, _aoh, _sw, _sh);
 
         var _depth = surface_get_texture_depth(application_surface);
         var _texel_x = 1 / max(_sw, 1);
@@ -235,8 +272,8 @@ function postfx_draw_scene()
         surface_set_target(fx_surf_ao);
         draw_clear(c_white);
         shader_set(sh_ssao);
-        shader_set_uniform_f(fx_u.ssao.texel, _texel_x, _texel_y);
-        shader_set_uniform_f(fx_u.ssao.res, _sw, _sh);
+        shader_set_uniform_f(fx_u.ssao.texel, 1 / _aow, 1 / _aoh);
+        shader_set_uniform_f(fx_u.ssao.res, _aow, _aoh);
         shader_set_uniform_f(fx_u.ssao.znear, FX_ZNEAR);
         shader_set_uniform_f(fx_u.ssao.zfar, FX_ZFAR);
         shader_set_uniform_f(fx_u.ssao.fov, _fov_scale);
@@ -246,7 +283,8 @@ function postfx_draw_scene()
         shader_set_uniform_f(fx_u.ssao.power, fx.ssao_power);
         shader_set_uniform_f(fx_u.ssao.samples, fx.ssao_samples);
         texture_set_stage(fx_u.ssao.depth, _depth);
-        draw_surface(application_surface, 0, 0);
+        gpu_set_tex_filter_ext(fx_u.ssao.depth, false);
+        draw_surface_stretched(application_surface, 0, 0, _aow, _aoh);
         shader_reset();
         surface_reset_target();
 
@@ -269,6 +307,9 @@ function postfx_draw_scene()
         }
         texture_set_stage(fx_u.blur.ao, surface_get_texture(fx_surf_ao));
         texture_set_stage(fx_u.blur.depth, _depth);
+        // Smooth upsample of the small AO buffer, point sampling on depth
+        gpu_set_tex_filter_ext(fx_u.blur.ao, true);
+        gpu_set_tex_filter_ext(fx_u.blur.depth, false);
         draw_surface(application_surface, 0, 0);
         shader_reset();
         surface_reset_target();
@@ -339,9 +380,17 @@ function postfx_panel_layout()
         _y += 24;
     }
 
-    fx_btn_reset = [fx_panel_x + 14, _y + 6, fx_panel_x + 14 + 140, _y + 6 + 26];
-    fx_btn_close = [fx_panel_x + fx_panel_w - 14 - 90, _y + 6, fx_panel_x + fx_panel_w - 14, _y + 6 + 26];
-    fx_panel_h = (_y + 6 + 26 + 14) - fx_panel_y;
+    // Quality presets on their own row, then reset / close
+    var _bw = floor((fx_panel_w - 28 - 16) / 3);
+    var _py = _y + 20;
+    fx_btn_low = [fx_panel_x + 14, _py, fx_panel_x + 14 + _bw, _py + 24];
+    fx_btn_med = [fx_panel_x + 22 + _bw, _py, fx_panel_x + 22 + _bw * 2, _py + 24];
+    fx_btn_high = [fx_panel_x + 30 + _bw * 2, _py, fx_panel_x + 30 + _bw * 3, _py + 24];
+
+    var _by = _py + 24 + 10;
+    fx_btn_reset = [fx_panel_x + 14, _by, fx_panel_x + 14 + 140, _by + 26];
+    fx_btn_close = [fx_panel_x + fx_panel_w - 14 - 90, _by, fx_panel_x + fx_panel_w - 14, _by + 26];
+    fx_panel_h = (_by + 26 + 14) - fx_panel_y;
 }
 
 /// @desc Left and right edge of a slider track.
@@ -492,6 +541,18 @@ function postfx_update()
             fx_drag = fx_hover;
             postfx_set_norm(fx_drag, (_mx - _x0) / max(_x1 - _x0, 1));
         }
+        else if (_mx >= fx_btn_low[0] && _mx < fx_btn_low[2] && _my >= fx_btn_low[1] && _my < fx_btn_low[3])
+        {
+            postfx_preset("low");
+        }
+        else if (_mx >= fx_btn_med[0] && _mx < fx_btn_med[2] && _my >= fx_btn_med[1] && _my < fx_btn_med[3])
+        {
+            postfx_preset("medium");
+        }
+        else if (_mx >= fx_btn_high[0] && _mx < fx_btn_high[2] && _my >= fx_btn_high[1] && _my < fx_btn_high[3])
+        {
+            postfx_preset("high");
+        }
         else if (_mx >= fx_btn_reset[0] && _mx < fx_btn_reset[2] && _my >= fx_btn_reset[1] && _my < fx_btn_reset[3])
         {
             postfx_reset();
@@ -560,7 +621,6 @@ function postfx_panel_draw()
     draw_set_colour(c_white);
     draw_text(_x1 + 14, _y1 + 15, "POST FX");
 
-    draw_set_halign(fa_right);
     var _state = "";
     if (fx_ssao_on)
     {
@@ -579,7 +639,12 @@ function postfx_panel_draw()
     {
         draw_set_colour(c_lime);
     }
-    draw_text(_x2 - 14, _y1 + 15, _state);
+    draw_text(_x1 + 92, _y1 + 15, _state);
+
+    // Frame rate, so the cost of a slider is visible while you drag it
+    draw_set_halign(fa_right);
+    draw_set_colour(c_ltgray);
+    draw_text(_x2 - 14, _y1 + 15, string(fps) + " fps  (uncapped " + string(round(fps_real)) + ")");
     draw_set_halign(fa_left);
 
     // Rows
@@ -655,6 +720,13 @@ function postfx_panel_draw()
         draw_text(_x2 - 14, _cy, postfx_value_text(_i));
         draw_set_halign(fa_left);
     }
+
+    // Quality presets: these move only the parameters that cost frame time
+    draw_set_colour(menu_col_accent);
+    draw_text(_x1 + 14, fx_btn_low[1] - 13, "QUALITY (COST ONLY)");
+    postfx_draw_button(fx_btn_low, "Low");
+    postfx_draw_button(fx_btn_med, "Medium");
+    postfx_draw_button(fx_btn_high, "High");
 
     // Buttons
     postfx_draw_button(fx_btn_reset, "Reset defaults");

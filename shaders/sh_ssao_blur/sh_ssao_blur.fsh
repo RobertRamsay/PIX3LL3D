@@ -30,25 +30,34 @@ void main()
     float dc = texture2D(u_depth, uv).r;
     float zc = linear_depth(dc);
 
-    float ao = 0.0;
-    float wsum = 0.0;
+    // 3x3 is enough once the AO buffer is upsampled with bilinear filtering,
+    // and at blur 0 the loop is skipped entirely - 9 fewer texture fetches per
+    // pixel than a 5x5, which is most of this pass's cost.
+    float ao = texture2D(u_ao, uv).r;
 
-    for (int y = -2; y <= 2; y++)
+    if (u_blur > 0.0)
     {
-        for (int x = -2; x <= 2; x++)
+        float sum = 0.0;
+        float wsum = 0.0;
+
+        for (int y = -1; y <= 1; y++)
         {
-            vec2 off = vec2(float(x), float(y)) * u_blur * u_texel;
-            vec2 suv = uv + off;
+            for (int x = -1; x <= 1; x++)
+            {
+                vec2 suv = uv + vec2(float(x), float(y)) * u_blur * u_texel;
 
-            float zs = linear_depth(texture2D(u_depth, suv).r);
-            float w = exp(-abs(zs - zc) * 6.0);
+                float zs = linear_depth(texture2D(u_depth, suv).r);
+                float w = exp(-abs(zs - zc) * 6.0);
 
-            ao += texture2D(u_ao, suv).r * w;
-            wsum += w;
+                sum += texture2D(u_ao, suv).r * w;
+                wsum += w;
+            }
         }
+
+        ao = sum / max(wsum, 0.0001);
     }
 
-    ao = clamp(ao / max(wsum, 0.0001), 0.0, 1.0);
+    ao = clamp(ao, 0.0, 1.0);
 
     if (u_debug > 0.5)
     {

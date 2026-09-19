@@ -48,8 +48,11 @@ if ((display_aa & 8) != 0) {
 } else if ((display_aa & 2) != 0) {
     aa_level = 2;
 }
-aa_on = (aa_level > 0);
-display_reset(aa_level, true);
+// MSAA lands on the application surface now, not the back buffer, and at the
+// detected maximum (often 8x) that alone costs most of the frame. Start with it
+// off; View > Anti-aliasing switches it on at aa_level when you want it.
+aa_on = false;
+display_reset(0, true);
 // --- CAMERA VARIABLES ---
 cam_dist = 12;
 cam_pitch = 20.7;
@@ -182,6 +185,9 @@ fx_panel_y = 0;
 fx_panel_w = 0;
 fx_panel_h = 0;
 fx_row_y = [];                   // y of each slider row
+fx_btn_low = [0, 0, 0, 0];       // quality preset buttons
+fx_btn_med = [0, 0, 0, 0];
+fx_btn_high = [0, 0, 0, 0];
 fx_btn_reset = [0, 0, 0, 0];
 fx_btn_close = [0, 0, 0, 0];
 fx_slider_h = 12;
