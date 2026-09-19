@@ -1,0 +1,17 @@
+diff --git a/objects/obj_editor/Step_0.gml b/objects/obj_editor/Step_0.gml
+index e03194d..8f96659 100644
+--- a/objects/obj_editor/Step_0.gml
++++ b/objects/obj_editor/Step_0.gml
+@@ -607,7 +607,11 @@ if (active_plane == "XY") {
+     }
+     ghost_x = floor(_hit_x) + plane_offset_XY.left_right;
+     ghost_y = floor(_hit_y) + plane_offset_XY.up_down;
+-    ghost_z = round(_plane_z);
++    // draw_tile_quad_textured draws an XY tile at world Z = -z, so a tile's
++    // stored z is up-positive while _plane_z is the plane's world Z. Store the
++    // negation or the quad lands mirrored through Z=0 - off the cursor by
++    // twice the depth, which is only invisible while depth is still 0.
++    ghost_z = round(-_plane_z);
+ }
+ if (active_plane == "XZ") {
+     // XZ plane sits at world Y = depth
