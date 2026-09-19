@@ -206,3 +206,5 @@ about_draw();
 
 // --- MENU BAR (last, so drop-downs sit over everything) ---
 menu_draw();
+
+draw_sprite(spr_logo,0,1920-180,1080-180)
