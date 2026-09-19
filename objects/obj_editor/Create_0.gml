@@ -31,6 +31,12 @@ ui_ref_h = 1080;
 ui_last_w = 0;
 ui_last_h = 0;
 
+// --- WINDOW (F10 toggles fullscreen; see WINDOW_system) ---
+// Size to come back to when dropping out of fullscreen. Updated every time
+// you leave a window, so the toggle remembers what you last had.
+win_last_w = WINDOW_DEFAULT_W;
+win_last_h = WINDOW_DEFAULT_H;
+
 // --- APPLICATION SURFACE (post FX read it; see POSTFX_system) ---
 // The 3D view renders here, and postfx_draw_scene() puts it on screen at the
 // top of Draw GUI, so the UI drawn afterwards never goes through the shader.
@@ -250,6 +256,8 @@ menu_defs = [
     {
         title: "View", mode: "all",
         items: [
+            { label: "Fullscreen",       key: "F10",  act: "fullscreen", mode: "all" },
+            { label: "-",                key: "",     act: "",           mode: "all" },
             { label: "Reset view",       key: "Home", act: "reset_view", mode: "3d" },
             { label: "-",                key: "",     act: "",           mode: "3d" },
             { label: "Grid",             key: "G",    act: "grid",       mode: "3d" },

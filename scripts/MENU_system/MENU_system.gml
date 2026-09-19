@@ -27,6 +27,10 @@ function ui_update_gui_size()
     ui_last_h = _wh;
     var _scale = _wh / ui_ref_h;
     display_set_gui_size(round(_ww / _scale), ui_ref_h);
+
+    // The window can now be dragged to any size, so the render target the
+    // post FX reads has to follow it (see WINDOW_system).
+    window_sync_app_surface(_ww, _wh);
 }
 
 // ============================================================
@@ -537,6 +541,7 @@ function menu_item_checked(_act)
         case "cull":          return cull_on;
         case "tiles_builtin": return !global.tile_is_custom;
         case "tiles_custom":  return global.tile_is_custom;
+        case "fullscreen":    return window_get_fullscreen();
         case "fx_crt":        return fx_crt_on;
         case "fx_panel":      return fx_panel_open;
         case "pe_toggle":     return pe_open;

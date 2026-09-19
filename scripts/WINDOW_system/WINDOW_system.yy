@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"WINDOW_system",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"WINDOW_system",
+  "parent":{
+    "name":"Functions",
+    "path":"folders/Functions.yy",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}

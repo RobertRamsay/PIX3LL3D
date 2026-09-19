@@ -4,6 +4,12 @@
 ui_update_gui_size();
 menu_update();
 
+// --- FULLSCREEN / WINDOWED (F10; works in both editors) ---
+if (keyboard_check_pressed(vk_f10) || menu_action == "fullscreen")
+{
+    window_toggle_fullscreen();
+}
+
 // --- ABOUT PANEL (modal: it eats all input while it is open) ---
 about_update();
 if (about_visible)

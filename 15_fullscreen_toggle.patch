@@ -1,0 +1,213 @@
+diff --git a/PIX3LL3D.yyp b/PIX3LL3D.yyp
+index cba910b..9f23ec7 100644
+--- a/PIX3LL3D.yyp
++++ b/PIX3LL3D.yyp
+@@ -42,6 +42,7 @@
+     {"id":{"name":"scene_save","path":"scripts/scene_save/scene_save.yy",},},
+     {"id":{"name":"tileset_import","path":"scripts/tileset_import/tileset_import.yy",},},
+     {"id":{"name":"UNDO_system","path":"scripts/UNDO_system/UNDO_system.yy",},},
++    {"id":{"name":"WINDOW_system","path":"scripts/WINDOW_system/WINDOW_system.yy",},},
+     {"id":{"name":"spr_tile","path":"sprites/spr_tile/spr_tile.yy",},},
+   ],
+   "resourceType":"GMProject",
+diff --git a/objects/obj_editor/Create_0.gml b/objects/obj_editor/Create_0.gml
+index 4acea4e..107b873 100644
+--- a/objects/obj_editor/Create_0.gml
++++ b/objects/obj_editor/Create_0.gml
+@@ -31,6 +31,12 @@ ui_ref_h = 1080;
+ ui_last_w = 0;
+ ui_last_h = 0;
+ 
++// --- WINDOW (F10 toggles fullscreen; see WINDOW_system) ---
++// Size to come back to when dropping out of fullscreen. Updated every time
++// you leave a window, so the toggle remembers what you last had.
++win_last_w = WINDOW_DEFAULT_W;
++win_last_h = WINDOW_DEFAULT_H;
++
+ // --- APPLICATION SURFACE (post FX read it; see POSTFX_system) ---
+ // The 3D view renders here, and postfx_draw_scene() puts it on screen at the
+ // top of Draw GUI, so the UI drawn afterwards never goes through the shader.
+@@ -250,6 +256,8 @@ menu_defs = [
+     {
+         title: "View", mode: "all",
+         items: [
++            { label: "Fullscreen",       key: "F10",  act: "fullscreen", mode: "all" },
++            { label: "-",                key: "",     act: "",           mode: "all" },
+             { label: "Reset view",       key: "Home", act: "reset_view", mode: "3d" },
+             { label: "-",                key: "",     act: "",           mode: "3d" },
+             { label: "Grid",             key: "G",    act: "grid",       mode: "3d" },
+diff --git a/objects/obj_editor/Step_0.gml b/objects/obj_editor/Step_0.gml
+index ed3ca34..b85bba8 100644
+--- a/objects/obj_editor/Step_0.gml
++++ b/objects/obj_editor/Step_0.gml
+@@ -4,6 +4,12 @@
+ ui_update_gui_size();
+ menu_update();
+ 
++// --- FULLSCREEN / WINDOWED (F10; works in both editors) ---
++if (keyboard_check_pressed(vk_f10) || menu_action == "fullscreen")
++{
++    window_toggle_fullscreen();
++}
++
+ // --- ABOUT PANEL (modal: it eats all input while it is open) ---
+ about_update();
+ if (about_visible)
+diff --git a/options/mac/options_mac.yy b/options/mac/options_mac.yy
+index 792c3dd..74a84dc 100644
+--- a/options/mac/options_mac.yy
++++ b/options/mac/options_mac.yy
+@@ -2,7 +2,7 @@
+   "$GMMacOptions":"",
+   "%Name":"macOS",
+   "name":"macOS",
+-  "option_mac_allow_fullscreen":false,
++  "option_mac_allow_fullscreen":true,
+   "option_mac_allow_incoming_network":false,
+   "option_mac_allow_outgoing_network":false,
+   "option_mac_apple_sign_in":false,
+@@ -23,11 +23,11 @@
+   "option_mac_menu_dock":false,
+   "option_mac_min_version":"10.10",
+   "option_mac_output_dir":"~/gamemakerstudio2",
+-  "option_mac_resize_window":false,
++  "option_mac_resize_window":true,
+   "option_mac_scale":0,
+   "option_mac_signing_identity":"Developer ID Application:",
+   "option_mac_splash_png":"${base_options_dir}/mac/splash/splash.png",
+-  "option_mac_start_fullscreen":false,
++  "option_mac_start_fullscreen":true,
+   "option_mac_team_id":"",
+   "option_mac_texture_page":"2048x2048",
+   "option_mac_version":"1.0.0.0",
+diff --git a/options/windows/options_windows.yy b/options/windows/options_windows.yy
+index 7ea90c8..b0c9418 100644
+--- a/options/windows/options_windows.yy
++++ b/options/windows/options_windows.yy
+@@ -2,8 +2,8 @@
+   "$GMWindowsOptions":"v2",
+   "%Name":"Windows",
+   "name":"Windows",
+-  "option_windows_allow_fullscreen_switching":false,
+-  "option_windows_borderless":true,
++  "option_windows_allow_fullscreen_switching":true,
++  "option_windows_borderless":false,
+   "option_windows_company_info":"YoYo Games Ltd",
+   "option_windows_copyright_info":"",
+   "option_windows_copy_exe_to_dest":false,
+@@ -26,7 +26,7 @@
+   "option_windows_scale":0,
+   "option_windows_sleep_margin":10,
+   "option_windows_splash_screen":"${base_options_dir}/windows/splash/splash.png",
+-  "option_windows_start_fullscreen":false,
++  "option_windows_start_fullscreen":true,
+   "option_windows_steam_use_alternative_launcher":false,
+   "option_windows_texture_page":"2048x2048",
+   "option_windows_use_raw_mouse":false,
+diff --git a/scripts/MENU_system/MENU_system.gml b/scripts/MENU_system/MENU_system.gml
+index 7d264c4..a5c613d 100644
+--- a/scripts/MENU_system/MENU_system.gml
++++ b/scripts/MENU_system/MENU_system.gml
+@@ -27,6 +27,10 @@ function ui_update_gui_size()
+     ui_last_h = _wh;
+     var _scale = _wh / ui_ref_h;
+     display_set_gui_size(round(_ww / _scale), ui_ref_h);
++
++    // The window can now be dragged to any size, so the render target the
++    // post FX reads has to follow it (see WINDOW_system).
++    window_sync_app_surface(_ww, _wh);
+ }
+ 
+ // ============================================================
+@@ -537,6 +541,7 @@ function menu_item_checked(_act)
+         case "cull":          return cull_on;
+         case "tiles_builtin": return !global.tile_is_custom;
+         case "tiles_custom":  return global.tile_is_custom;
++        case "fullscreen":    return window_get_fullscreen();
+         case "fx_crt":        return fx_crt_on;
+         case "fx_panel":      return fx_panel_open;
+         case "pe_toggle":     return pe_open;
+diff --git a/scripts/WINDOW_system/WINDOW_system.gml b/scripts/WINDOW_system/WINDOW_system.gml
+new file mode 100644
+index 0000000..ee5f86c
+--- /dev/null
++++ b/scripts/WINDOW_system/WINDOW_system.gml
+@@ -0,0 +1,58 @@
++/// WINDOW_system
++/// Fullscreen / windowed switching and keeping the render target in step
++/// with the window.
++///
++/// The editor starts fullscreen. F10 (or View > Fullscreen) drops it to a
++/// bordered window that can be dragged and resized like any other app, and
++/// F10 again puts it back. The windowed size is remembered across toggles.
++///
++/// Whenever the window changes size, the application surface has to follow:
++/// postfx_draw_scene() reads it and the CRT filter runs once per pixel of it,
++/// so a surface left at the old size is both wrong and needlessly expensive.
++
++#macro WINDOW_DEFAULT_W 1600
++#macro WINDOW_DEFAULT_H 900
++
++/// @desc Keep the application surface the same size as the window.
++/// Called from ui_update_gui_size, which already runs on every size change.
++function window_sync_app_surface(_ww, _wh)
++{
++    if (!surface_exists(application_surface))
++    {
++        return;
++    }
++    if (surface_get_width(application_surface) == _ww && surface_get_height(application_surface) == _wh)
++    {
++        return;
++    }
++    surface_resize(application_surface, _ww, _wh);
++}
++
++/// @desc Swap between fullscreen and a resizable window.
++function window_toggle_fullscreen()
++{
++    if (window_get_fullscreen())
++    {
++        window_set_fullscreen(false);
++
++        // Restore the last windowed size, kept inside the display
++        var _w = win_last_w;
++        var _h = win_last_h;
++        _w = clamp(_w, 640, max(display_get_width() - 80, 640));
++        _h = clamp(_h, 480, max(display_get_height() - 120, 480));
++
++        window_set_size(_w, _h);
++        window_center();
++    }
++    else
++    {
++        // Remember where we were so coming back out lands the same way
++        win_last_w = window_get_width();
++        win_last_h = window_get_height();
++        window_set_fullscreen(true);
++    }
++
++    // Force ui_update_gui_size to recompute rather than trust its cache
++    ui_last_w = 0;
++    ui_last_h = 0;
++}
+diff --git a/scripts/WINDOW_system/WINDOW_system.yy b/scripts/WINDOW_system/WINDOW_system.yy
+new file mode 100644
+index 0000000..9b5dfd0
+--- /dev/null
++++ b/scripts/WINDOW_system/WINDOW_system.yy
+@@ -0,0 +1,13 @@
++{
++  "$GMScript":"v1",
++  "%Name":"WINDOW_system",
++  "isCompatibility":false,
++  "isDnD":false,
++  "name":"WINDOW_system",
++  "parent":{
++    "name":"Functions",
++    "path":"folders/Functions.yy",
++  },
++  "resourceType":"GMScript",
++  "resourceVersion":"2.0",
++}
+\ No newline at end of file
