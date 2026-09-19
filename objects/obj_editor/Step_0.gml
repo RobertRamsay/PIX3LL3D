@@ -410,6 +410,9 @@ if (_decal_step != 0) {
 if (keyboard_check_pressed(ord("0")) || menu_action == "decal_reset") {
     grid_offset = 0;
 }
+
+// --- BRUSH NUDGE (arrow keys, one texture pixel a step; see BRUSH_system) ---
+brush_nudge_update();
 // --- TILE PALETTE (hold SPACE) ---
 palette_phase += 0.02; // gradient animation speed (tunable)
 
@@ -645,6 +648,9 @@ if (active_plane == "YZ") {
     var _side = (_cx < ghost_x) ? 1 : -1;
     ghost_off_x = _off_world * _side;
 }
+
+// Sub-tile nudge on the two in-plane axes, on top of the decal offset
+brush_nudge_apply();
 
 // --- 6. TILE PLACEMENT / REMOVAL ---
 var _place_key = string(ghost_x) + "," + string(ghost_y) + "," + string(ghost_z) + "," + active_plane + "," + string(grid_offset);

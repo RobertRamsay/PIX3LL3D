@@ -141,6 +141,14 @@ palette_pad = 2         // gap between cells
 palette_x = 0;           // top-left of palette, set to mouse on open
 palette_y = 0;
 
+// --- BRUSH NUDGE (arrow keys shift the held brush a texel at a time) ---
+// Steps along each world axis, in texture pixels of a tile. Only the active
+// plane's two in-plane axes are applied; see BRUSH_system.
+nudge_x = 0;
+nudge_y = 0;
+nudge_z = 0;
+nudge_max = 64;          // limit either way, in texels (4 tiles at a 16px cell)
+
 // --- PLANE OFFSETS ---
 plane_offset_XY = { left_right: 0, up_down: 0, depth: 0 };
 plane_offset_XZ = { left_right: 0, up_down: 0, depth: 0 };
@@ -273,7 +281,13 @@ menu_defs = [
             { label: "-",              key: "",      act: "",            mode: "3d" },
             { label: "Decal forward",  key: "1",     act: "decal_fwd",   mode: "3d" },
             { label: "Decal back",     key: "Tab+1", act: "decal_back",  mode: "3d" },
-            { label: "Reset decal",    key: "0",     act: "decal_reset", mode: "3d" }
+            { label: "Reset decal",    key: "0",     act: "decal_reset", mode: "3d" },
+            { label: "-",              key: "",      act: "",            mode: "3d" },
+            { label: "Nudge left",     key: "Left",  act: "nudge_left",  mode: "3d" },
+            { label: "Nudge right",    key: "Right", act: "nudge_right", mode: "3d" },
+            { label: "Nudge up",       key: "Up",    act: "nudge_up",    mode: "3d" },
+            { label: "Nudge down",     key: "Down",  act: "nudge_down",  mode: "3d" },
+            { label: "Reset nudge",    key: "N",     act: "nudge_reset", mode: "3d" }
         ]
     },
     {
@@ -342,6 +356,8 @@ menu_defs = [
             { label: "Pan",             key: "MMB drag",     act: "", mode: "3d" },
             { label: "Orbit",           key: "Alt+MMB drag", act: "", mode: "3d" },
             { label: "Zoom",            key: "Wheel",        act: "", mode: "3d" },
+            { label: "Nudge brush 1px",  key: "Arrow keys",      act: "", mode: "3d" },
+            { label: "Nudge brush 4px",  key: "Shift+arrows",    act: "", mode: "3d" },
             { label: "Paint primary",   key: "LMB",              act: "", mode: "pe" },
             { label: "Paint secondary", key: "RMB",              act: "", mode: "pe" },
             { label: "Eyedropper",      key: "Alt (hold)",       act: "", mode: "pe" },

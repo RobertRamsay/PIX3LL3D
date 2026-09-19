@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"BRUSH_system",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"BRUSH_system",
+  "parent":{
+    "name":"Functions",
+    "path":"folders/Functions.yy",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}

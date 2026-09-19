@@ -22,10 +22,20 @@ draw_set_font(-1);
 draw_set_halign(fa_left);
 draw_set_valign(fa_top);
 
+// The box grows a line to fit the nudge readout while a nudge is dialled in.
+// Width stays put: the gradient swatch sits at _hud_x + 128.
+var _nudge_text = brush_nudge_text();
+var _hud_w = 120;
+var _hud_h = 110;
+if (_nudge_text != "")
+{
+    _hud_h = 128;
+}
+
 draw_set_color(c_white);
-draw_rectangle(_hud_x - 5, _hud_y - 5, _hud_x + 120, _hud_y + 110, false);
+draw_rectangle(_hud_x - 5, _hud_y - 5, _hud_x + _hud_w, _hud_y + _hud_h, false);
 draw_set_color(c_black);
-draw_rectangle(_hud_x - 5, _hud_y - 5, _hud_x + 120, _hud_y + 110, true);
+draw_rectangle(_hud_x - 5, _hud_y - 5, _hud_x + _hud_w, _hud_y + _hud_h, true);
 
 var _cx2 = _hud_x + 55;
 var _cy2 = _hud_y + 55;
@@ -69,6 +79,11 @@ draw_text(_cx2 + _az_x + 4, _cy2 + _az_y - 8, "Z");
 
 draw_set_color(c_black);
 draw_text(_hud_x + 10, _hud_y + 85, "Plane: " + active_plane);
+
+if (_nudge_text != "")
+{
+    draw_text(_hud_x + 10, _hud_y + 103, _nudge_text);
+}
 
 // --- BACKGROUND GRADIENT SWATCH (+ RGB popup when open) ---
 bg_ui_draw();
