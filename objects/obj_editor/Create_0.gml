@@ -37,8 +37,14 @@ ui_last_h = 0;
 // 3840x2160, so without an explicit size a windowed run would open at 4K.
 win_last_w = WINDOW_DEFAULT_W;
 win_last_h = WINDOW_DEFAULT_H;
-win_settle = 0;          // frames left before the pending window size is applied
+win_settle = 0;          // frames left before the pending window rect is applied
 win_cooldown = 0;        // frames before another toggle is accepted
+
+// We start "fullscreen" as a borderless window filling the display. The
+// project option already opens it borderless, so this is just the size.
+// window_set_fullscreen is never used - see WINDOW_system for why.
+win_is_full = true;
+window_set_rectangle(0, 0, display_get_width(), display_get_height());
 
 // --- APPLICATION SURFACE (post FX read it; see POSTFX_system) ---
 // The 3D view renders here, and postfx_draw_scene() puts it on screen at the

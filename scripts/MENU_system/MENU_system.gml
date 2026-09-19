@@ -541,7 +541,7 @@ function menu_item_checked(_act)
         case "cull":          return cull_on;
         case "tiles_builtin": return !global.tile_is_custom;
         case "tiles_custom":  return global.tile_is_custom;
-        case "fullscreen":    return window_get_fullscreen();
+        case "fullscreen":    return win_is_full;
         case "fx_crt":        return fx_crt_on;
         case "fx_panel":      return fx_panel_open;
         case "pe_toggle":     return pe_open;
