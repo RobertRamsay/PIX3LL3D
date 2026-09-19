@@ -18,6 +18,14 @@
 #macro ABOUT_ITCH_URL    "https://polytricity.itch.io/pixell3d"
 #macro ABOUT_CHECK_ON_START true   // fetch the remote version once at launch
 
+// major.minor.patch.build. Missing parts count as 0, so "1.0.1" and "1.0.1.0"
+// compare equal and older three-part saves still work.
+#macro VERSION_PARTS 4
+
+// Update banner shown over the viewport when a newer version is out
+#macro ABOUT_BANNER_W 620
+#macro ABOUT_BANNER_H 52
+
 // ============================================================
 //  VERSION FILE
 // ============================================================
@@ -94,9 +102,9 @@ function version_local_load()
 /// Any trailing text on a part is dropped, so "1.2.0-beta" reads as 1.2.0.
 function version_to_numbers(_v)
 {
-    var _out = [0, 0, 0];
+    var _out = [0, 0, 0, 0];
     var _parts = string_split(string(_v), ".", false);
-    for (var _i = 0; _i < 3; _i++)
+    for (var _i = 0; _i < VERSION_PARTS; _i++)
     {
         if (_i < array_length(_parts))
         {
@@ -119,7 +127,7 @@ function version_compare(_a, _b)
 {
     var _na = version_to_numbers(_a);
     var _nb = version_to_numbers(_b);
-    for (var _i = 0; _i < 3; _i++)
+    for (var _i = 0; _i < VERSION_PARTS; _i++)
     {
         if (_na[_i] < _nb[_i])
         {
@@ -200,6 +208,174 @@ function about_http_result(_async)
         about_state = "current";
         about_message = "You are up to date.";
     }
+}
+
+// ============================================================
+//  UPDATE BANNER
+//  Sits over the viewport under the menu bar once the launch check has
+//  found a newer version. Click it to open itch.io, X to dismiss for
+//  this session. Shows in the 3D editor and the pixel editor alike.
+// ============================================================
+
+/// @desc Should the banner be on screen right now?
+function about_banner_active()
+{
+    if (about_state != "update")
+    {
+        return false;
+    }
+    if (about_banner_hide)
+    {
+        return false;
+    }
+    if (about_visible)
+    {
+        return false; // the About panel is already telling them
+    }
+    return true;
+}
+
+/// @desc Banner rect and its two hit areas (GUI pixels).
+function about_banner_layout()
+{
+    var _gw = display_get_gui_width();
+
+    about_banner_x = floor((_gw - ABOUT_BANNER_W) * 0.5);
+    about_banner_y = menu_bar_h + 14;
+
+    var _x2 = about_banner_x + ABOUT_BANNER_W;
+    var _y2 = about_banner_y + ABOUT_BANNER_H;
+
+    // Dismiss box on the right, the rest of the bar opens itch.io
+    about_banner_close = [_x2 - 38, about_banner_y + 10, _x2 - 12, about_banner_y + 36];
+    about_banner_get = [_x2 - 190, about_banner_y + 11, _x2 - 48, about_banner_y + 41];
+}
+
+/// @desc Banner clicks. Call in Step, before the pixel editor takes over.
+function about_banner_update()
+{
+    if (!about_banner_active())
+    {
+        return;
+    }
+
+    about_banner_layout();
+
+    var _mx = device_mouse_x_to_gui(0);
+    var _my = device_mouse_y_to_gui(0);
+    var _inside = (_mx >= about_banner_x && _mx < about_banner_x + ABOUT_BANNER_W && _my >= about_banner_y && _my < about_banner_y + ABOUT_BANNER_H);
+
+    about_banner_hover = "";
+    if (about_over(about_banner_close, _mx, _my))
+    {
+        about_banner_hover = "close";
+    }
+    else if (_inside)
+    {
+        about_banner_hover = "get";
+    }
+
+    if (!_inside)
+    {
+        return;
+    }
+
+    // The banner owns the mouse while the pointer is over it
+    menu_blocks_mouse = true;
+
+    if (mouse_check_button_pressed(mb_left) && !menu_click_consumed)
+    {
+        if (about_banner_hover == "close")
+        {
+            about_banner_hide = true;
+        }
+        else
+        {
+            url_open(ABOUT_ITCH_URL);
+        }
+    }
+}
+
+/// @desc Draw the banner. Call in Draw GUI, just before menu_draw().
+function about_banner_draw()
+{
+    if (!about_banner_active())
+    {
+        return;
+    }
+
+    about_banner_layout();
+
+    var _x1 = about_banner_x;
+    var _y1 = about_banner_y;
+    var _x2 = _x1 + ABOUT_BANNER_W;
+    var _y2 = _y1 + ABOUT_BANNER_H;
+
+    gpu_set_cullmode(cull_noculling);
+    gpu_set_tex_filter(true);
+    draw_set_font(-1);
+    draw_set_halign(fa_left);
+    draw_set_valign(fa_middle);
+
+    // Slow pulse so it catches the eye without strobing
+    var _pulse = 0.5 + 0.5 * sin(current_time / 400);
+
+    // Shadow and body
+    draw_set_alpha(0.35);
+    draw_set_colour(c_black);
+    draw_rectangle(_x1 + 5, _y1 + 5, _x2 + 5, _y2 + 5, false);
+    draw_set_alpha(1);
+    draw_set_colour(make_color_rgb(150, 95, 10));
+    draw_rectangle(_x1, _y1, _x2, _y2, false);
+
+    // Pulsing amber outline
+    draw_set_colour(merge_colour(make_color_rgb(200, 140, 30), make_color_rgb(255, 205, 90), _pulse));
+    draw_rectangle(_x1, _y1, _x2, _y2, true);
+    draw_rectangle(_x1 + 1, _y1 + 1, _x2 - 1, _y2 - 1, true);
+
+    // Message
+    draw_set_colour(c_white);
+    draw_text(_x1 + 18, _y1 + 18, "Update available:  " + ABOUT_APP_NAME + " " + about_ver_remote);
+    draw_set_colour(make_color_rgb(255, 225, 170));
+    draw_text(_x1 + 18, _y1 + 36, "You are running " + global.app_version);
+
+    // "Get it on itch.io"
+    var _g = about_banner_get;
+    if (about_banner_hover == "get")
+    {
+        draw_set_colour(make_color_rgb(255, 210, 110));
+    }
+    else
+    {
+        draw_set_colour(make_color_rgb(215, 160, 55));
+    }
+    draw_rectangle(_g[0], _g[1], _g[2], _g[3], false);
+    draw_set_colour(make_color_rgb(90, 55, 5));
+    draw_rectangle(_g[0], _g[1], _g[2], _g[3], true);
+    draw_set_colour(make_color_rgb(40, 25, 0));
+    draw_set_halign(fa_center);
+    draw_text((_g[0] + _g[2]) * 0.5, (_g[1] + _g[3]) * 0.5, "Get it on itch.io");
+    draw_set_halign(fa_left);
+
+    // Dismiss
+    var _c = about_banner_close;
+    if (about_banner_hover == "close")
+    {
+        draw_set_colour(c_white);
+    }
+    else
+    {
+        draw_set_colour(make_color_rgb(255, 215, 150));
+    }
+    draw_set_halign(fa_center);
+    draw_text((_c[0] + _c[2]) * 0.5, (_c[1] + _c[3]) * 0.5, "X");
+    draw_set_halign(fa_left);
+
+    // Restore shared draw state
+    draw_set_valign(fa_top);
+    draw_set_colour(c_white);
+    draw_set_alpha(1);
+    gpu_set_tex_filter(tex_filter_on);
 }
 
 // ============================================================

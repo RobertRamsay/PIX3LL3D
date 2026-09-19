@@ -1,5 +1,11 @@
 # PIX3LL3D version file.
-# Edit the version line below when a new build goes live on itch.io, then commit it.
-# The app reads this file for its own version AND fetches the copy on GitHub to
-# see whether a newer release exists. Lines starting with # are ignored.
-1.0.0
+#
+# THIS is the file you edit to publish an update.
+# Bump the version line, build, upload to itch.io, then commit and push.
+# Running builds fetch this same file from GitHub, compare it with their own
+# copy, and show an update banner if theirs is older.
+#
+# Four parts, major.minor.patch.build. Fewer parts is fine - missing ones
+# count as 0, so 1.0.1 and 1.0.1.0 are the same version.
+# Lines starting with # are ignored.
+1.0.0.0

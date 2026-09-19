@@ -192,6 +192,14 @@ about_btn_itch = [0, 0, 0, 0];
 about_btn_close = [0, 0, 0, 0];
 about_hover = "";             // "", "check", "itch" or "close"
 
+// Update banner over the viewport (see ABOUT_system)
+about_banner_hide = false;    // dismissed with X for this session
+about_banner_hover = "";      // "", "get" or "close"
+about_banner_x = 0;           // banner rect (set by about_banner_layout)
+about_banner_y = 0;
+about_banner_get = [0, 0, 0, 0];
+about_banner_close = [0, 0, 0, 0];
+
 // Quiet check at launch; the result only shows up if there is something newer
 if (ABOUT_CHECK_ON_START)
 {

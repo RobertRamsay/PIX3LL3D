@@ -10,6 +10,7 @@ if (!pe_open)
 if (pe_open)
 {
     pe_draw();
+    about_banner_draw();
     about_draw();
     menu_draw();
     exit;
@@ -94,16 +95,6 @@ if (pe_png_dirty)
     gpu_set_tex_filter(true);
     draw_set_colour(c_yellow);
     draw_text(_hud_x, _hud_y + 122, "Texture edits not saved to PNG (Tileset > Pixel editor > Ctrl+S)");
-    draw_set_colour(c_white);
-    gpu_set_tex_filter(tex_filter_on);
-}
-
-// --- UPDATE NOTICE (only once the launch check has found something newer) ---
-if (about_state == "update" && !about_visible)
-{
-    gpu_set_tex_filter(true);
-    draw_set_colour(c_yellow);
-    draw_text(_hud_x, _hud_y + 140, ABOUT_APP_NAME + " " + about_ver_remote + " is available (About > Version)");
     draw_set_colour(c_white);
     gpu_set_tex_filter(tex_filter_on);
 }
@@ -200,6 +191,9 @@ if (palette_open) {
 
 // --- POST FX CONTROL PANEL ---
 postfx_panel_draw();
+
+// --- UPDATE BANNER (over the viewport, under the menu bar) ---
+about_banner_draw();
 
 // --- ABOUT PANEL (modal, over the editor but under the menu bar) ---
 about_draw();

@@ -15,6 +15,9 @@ if (keyboard_check_pressed(vk_f10) || menu_action == "fullscreen")
 
 // --- ABOUT PANEL (modal: it eats all input while it is open) ---
 about_update();
+
+// Update banner: clickable in both editors, so it runs before the pe branch
+about_banner_update();
 if (about_visible)
 {
     exit;
