@@ -248,7 +248,7 @@ function about_banner_layout()
 
     // Dismiss box on the right, the rest of the bar opens itch.io
     about_banner_close = [_x2 - 38, about_banner_y + 10, _x2 - 12, about_banner_y + 36];
-    about_banner_get = [_x2 - 190, about_banner_y + 11, _x2 - 48, about_banner_y + 41];
+    about_banner_get = [_x2 - 210, about_banner_y + 11, _x2 - 40, about_banner_y + 41];
 }
 
 /// @desc Banner clicks. Call in Step, before the pixel editor takes over.
