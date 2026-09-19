@@ -8,4 +8,4 @@
 # Four parts, major.minor.patch.build. Fewer parts is fine - missing ones
 # count as 0, so 1.0.1 and 1.0.1.0 are the same version.
 # Lines starting with # are ignored.
-0.9.0.0
+1.0.0.0
