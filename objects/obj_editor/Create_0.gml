@@ -103,6 +103,21 @@ vertex_format_add_color();
 global.v_format_tex = vertex_format_end();
 // --- VERTEX BUFFER (textured) ---
 global.v_buffer_tex = vertex_create_buffer();
+
+// --- 3D GRID (thick screen-space lines; see GRID_system + sh_grid_line) ---
+grid_line_px = 3;                                // line width in screen pixels
+grid_half = 20;                                  // grid runs -grid_half..+grid_half
+grid_col_ref = make_color_rgb(80, 120, 220);     // zero-offset reference grid
+vertex_format_begin();
+vertex_format_add_position_3d();                 // this endpoint
+vertex_format_add_normal();                      // the other endpoint
+vertex_format_add_color();
+vertex_format_add_texcoord();                    // x = side (-1 / +1)
+grid_vfmt = vertex_format_end();
+grid_vb = vertex_create_buffer();
+grid_vb_key = "";                                // placement the buffer was built for
+grid_u_screen = shader_get_uniform(sh_grid_line, "u_screen");
+grid_u_width = shader_get_uniform(sh_grid_line, "u_width");
 // --- GHOST TILE ---
 ghost_x = 0;
 ghost_y = 0;

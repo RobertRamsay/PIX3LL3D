@@ -47,21 +47,9 @@ if (grid_visible) {
 	    var _gside = (_cx < 0) ? 1 : -1;
 	    _gx = _g_off * _gside;
 	}
-	for (var i = -20; i <= 20; i++) {
-	    var _color = (i == 0) ? c_red : c_gray;
-	    draw_line_3d(i + _gx, -20 + _gy, _gz, i + _gx, 20 + _gy, _gz, _color);
-	    _color = (i == 0) ? c_green : c_gray;
-	    draw_line_3d(-20 + _gx, i + _gy, _gz, 20 + _gx, i + _gy, _gz, _color);
-	}
-
-	// Reference grid at zero offset (mid-blue), drawn only when offset is active
-	if (grid_offset != 0) {
-	    var _ref_blue = make_color_rgb(80, 120, 220);
-	    for (var i = -20; i <= 20; i++) {
-	        draw_line_3d(i, -20, 0, i, 20, 0, _ref_blue);
-	        draw_line_3d(-20, i, 0, 20, i, 0, _ref_blue);
-	    }
-	}
+	// Thick screen-space lines (width: grid_line_px). Includes the mid-blue
+	// zero-offset reference grid whenever the offset is active.
+	grid_draw(_gx, _gy, _gz);
 }
 
 // --- 3. DRAW PLACED TILES (filter follows the T toggle) ---
