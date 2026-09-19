@@ -33,11 +33,9 @@ ui_last_h = 0;
 
 // --- APPLICATION SURFACE (post FX read it; see POSTFX_system) ---
 // The 3D view renders here, and postfx_draw_scene() puts it on screen at the
-// top of Draw GUI, so the UI drawn afterwards never goes through the shaders.
-// The depth buffer must stay enabled - SSAO reads it.
+// top of Draw GUI, so the UI drawn afterwards never goes through the shader.
 application_surface_enable(true);
 application_surface_draw_enable(false);
-surface_depth_disable(false);
 
 // --- ANTI-ALIASING (MSAA smooths grid lines and polygon edges) ---
 aa_level = 0;
@@ -170,24 +168,17 @@ if (ABOUT_CHECK_ON_START)
     about_check_update();
 }
 
-// --- POST FX (SSAO + CRT; see POSTFX_system) ---
+// --- POST FX (CRT monitor filter; see POSTFX_system) ---
 fx = postfx_defaults();          // every tunable parameter
 fx_sliders = postfx_slider_defs();
 fx_u = postfx_uniforms();        // cached shader uniform handles
-fx_ssao_on = false;
 fx_crt_on = false;
-fx_ao_debug = false;             // show the raw AO buffer instead of the scene
-fx_surf_ao = -1;                 // occlusion buffer (-1 = not made yet)
-fx_surf_scene = -1;              // scene with AO composited in
 fx_panel_open = false;
 fx_panel_x = 0;                  // panel rect (set by postfx_panel_layout)
 fx_panel_y = 0;
 fx_panel_w = 0;
 fx_panel_h = 0;
 fx_row_y = [];                   // y of each slider row
-fx_btn_low = [0, 0, 0, 0];       // quality preset buttons
-fx_btn_med = [0, 0, 0, 0];
-fx_btn_high = [0, 0, 0, 0];
 fx_btn_reset = [0, 0, 0, 0];
 fx_btn_close = [0, 0, 0, 0];
 fx_slider_h = 12;
@@ -299,13 +290,10 @@ menu_defs = [
     {
         title: "Post FX", mode: "3d",
         items: [
-            { label: "Ambient occlusion",  key: "F5", act: "fx_ssao",     mode: "3d" },
-            { label: "CRT monitor",        key: "F6", act: "fx_crt",      mode: "3d" },
-            { label: "-",                  key: "",   act: "",            mode: "3d" },
-            { label: "Controls...",        key: "F7", act: "fx_panel",    mode: "3d" },
-            { label: "-",                  key: "",   act: "",            mode: "3d" },
-            { label: "Show AO buffer",     key: "",   act: "fx_ao_debug", mode: "3d" },
-            { label: "Reset to defaults",  key: "",   act: "fx_reset",    mode: "3d" }
+            { label: "CRT monitor",        key: "F6", act: "fx_crt",   mode: "3d" },
+            { label: "-",                  key: "",   act: "",         mode: "3d" },
+            { label: "Controls...",        key: "F7", act: "fx_panel", mode: "3d" },
+            { label: "Reset to defaults",  key: "",   act: "fx_reset", mode: "3d" }
         ]
     },
     {

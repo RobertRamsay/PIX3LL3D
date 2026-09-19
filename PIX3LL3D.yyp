@@ -37,8 +37,6 @@
     {"id":{"name":"PIXEL_editor","path":"scripts/PIXEL_editor/PIXEL_editor.yy",},},
     {"id":{"name":"POSTFX_system","path":"scripts/POSTFX_system/POSTFX_system.yy",},},
     {"id":{"name":"sh_crt","path":"shaders/sh_crt/sh_crt.yy",},},
-    {"id":{"name":"sh_ssao_blur","path":"shaders/sh_ssao_blur/sh_ssao_blur.yy",},},
-    {"id":{"name":"sh_ssao","path":"shaders/sh_ssao/sh_ssao.yy",},},
     {"id":{"name":"scene_export_obj","path":"scripts/scene_export_obj/scene_export_obj.yy",},},
     {"id":{"name":"scene_save","path":"scripts/scene_save/scene_save.yy",},},
     {"id":{"name":"tileset_import","path":"scripts/tileset_import/tileset_import.yy",},},

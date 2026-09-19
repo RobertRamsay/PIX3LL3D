@@ -538,10 +538,8 @@ function menu_item_checked(_act)
         case "cull":          return cull_on;
         case "tiles_builtin": return !global.tile_is_custom;
         case "tiles_custom":  return global.tile_is_custom;
-        case "fx_ssao":       return fx_ssao_on;
         case "fx_crt":        return fx_crt_on;
         case "fx_panel":      return fx_panel_open;
-        case "fx_ao_debug":   return fx_ao_debug;
         case "pe_toggle":     return pe_open;
         case "pe_pixel_grid": return pe_show_pixel_grid;
         case "pe_tile_grid":  return pe_show_tile_grid;
