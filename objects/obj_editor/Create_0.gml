@@ -33,9 +33,12 @@ ui_last_h = 0;
 
 // --- WINDOW (F10 toggles fullscreen; see WINDOW_system) ---
 // Size to come back to when dropping out of fullscreen. Updated every time
-// you leave a window, so the toggle remembers what you last had.
+// you leave a window, so the toggle remembers what you last had. The room is
+// 3840x2160, so without an explicit size a windowed run would open at 4K.
 win_last_w = WINDOW_DEFAULT_W;
 win_last_h = WINDOW_DEFAULT_H;
+win_settle = 0;          // frames left before the pending window size is applied
+win_cooldown = 0;        // frames before another toggle is accepted
 
 // --- APPLICATION SURFACE (post FX read it; see POSTFX_system) ---
 // The 3D view renders here, and postfx_draw_scene() puts it on screen at the

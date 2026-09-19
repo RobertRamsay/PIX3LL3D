@@ -1,6 +1,9 @@
 /// @desc STEP EVENT of obj_editor
 
 // --- UI SCALE + MENU BAR (menu runs first so a click this frame drives the shortcuts below) ---
+// Window housekeeping first: it finishes any fullscreen change already in
+// flight before anything else reads the window size this frame.
+window_update();
 ui_update_gui_size();
 menu_update();
 

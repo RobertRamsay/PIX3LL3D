@@ -28,9 +28,9 @@ function ui_update_gui_size()
     var _scale = _wh / ui_ref_h;
     display_set_gui_size(round(_ww / _scale), ui_ref_h);
 
-    // The window can now be dragged to any size, so the render target the
-    // post FX reads has to follow it (see WINDOW_system).
-    window_sync_app_surface(_ww, _wh);
+    // The application surface is NOT resized here. GameMaker keeps it in step
+    // with the window itself, and doing it by hand during a fullscreen change
+    // lands in the middle of a swap chain rebuild and crashes the runtime.
 }
 
 // ============================================================
