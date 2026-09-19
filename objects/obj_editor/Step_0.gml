@@ -21,6 +21,9 @@ if (pe_open)
 // Background gradient swatch / RGB popup (can claim the mouse and Esc)
 bg_ui_update();
 
+// Post FX toggles, shortcuts and the slider panel (can claim the mouse and Esc)
+postfx_update();
+
 if ((keyboard_check_pressed(ord("P")) && !keyboard_check(vk_control)) || menu_action == "pe_toggle")
 {
     pe_open_editor();

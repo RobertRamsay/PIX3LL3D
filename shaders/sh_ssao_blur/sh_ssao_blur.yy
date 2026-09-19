@@ -1,0 +1,12 @@
+{
+  "$GMShader":"",
+  "%Name":"sh_ssao_blur",
+  "name":"sh_ssao_blur",
+  "parent":{
+    "name":"Shaders",
+    "path":"folders/Shaders.yy",
+  },
+  "resourceType":"GMShader",
+  "resourceVersion":"2.0",
+  "type":1,
+}

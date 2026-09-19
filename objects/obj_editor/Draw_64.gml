@@ -1,5 +1,11 @@
 /// @desc DRAW GUI EVENT of obj_editor
 
+// --- POST FX (puts the 3D view on screen; everything below lands on top) ---
+if (!pe_open)
+{
+    postfx_draw_scene();
+}
+
 // --- PIXEL EDITOR (full screen, menu bar on top) ---
 if (pe_open)
 {
@@ -176,6 +182,9 @@ if (palette_open) {
 
     draw_set_color(c_white);
 }
+
+// --- POST FX CONTROL PANEL ---
+postfx_panel_draw();
 
 // --- ABOUT PANEL (modal, over the editor but under the menu bar) ---
 about_draw();

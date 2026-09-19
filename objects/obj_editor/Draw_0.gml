@@ -14,7 +14,7 @@ var _cy = cam_look_y + dsin(cam_yaw) * dcos(cam_pitch) * cam_dist;
 var _cz = cam_look_z - dsin(cam_pitch) * cam_dist;
 
 var _view = matrix_build_lookat(_cx, _cy, _cz, cam_look_x, cam_look_y, cam_look_z, 0, 0, 1);
-var _proj = matrix_build_projection_perspective_fov(60, window_get_width() / window_get_height(), 1, 32000);
+var _proj = matrix_build_projection_perspective_fov(FX_FOV, window_get_width() / window_get_height(), FX_ZNEAR, FX_ZFAR);
 
 camera_set_view_mat(camera_get_active(), _view);
 camera_set_proj_mat(camera_get_active(), _proj);
