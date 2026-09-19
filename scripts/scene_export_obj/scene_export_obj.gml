@@ -117,10 +117,22 @@ function scene_export_obj(_path)
     {
         var _tile = global.world_tiles[$ _keys[_i]];
 
+        var _plane = _tile.plane;
+
+        // The XY quad is written with the up-axis sign FLIPPED relative to the
+        // walls (see _zs below), but off_z is a plain world-space nudge. Folding
+        // it in before that flip sent the offset the wrong way, so a decal
+        // floating 2 above the ground exported 2 below it. Pre-flip it for XY
+        // so the export matches what the editor shows.
+        var _off_z = _tile.off_z;
+        if (_plane == "XY")
+        {
+            _off_z = -_off_z;
+        }
+
         var _x = _tile.x + _tile.off_x;
         var _y = _tile.y + _tile.off_y;
-        var _z = _tile.z + _tile.off_z;
-        var _plane = _tile.plane;
+        var _z = _tile.z + _off_z;
         var _sub = _tile.sub;
         var _rot = _tile.rot;
 
