@@ -37,19 +37,11 @@ ui_last_h = 0;
 application_surface_enable(true);
 application_surface_draw_enable(false);
 
-// --- ANTI-ALIASING (MSAA smooths grid lines and polygon edges) ---
-aa_level = 0;
-if ((display_aa & 8) != 0) {
-    aa_level = 8;
-} else if ((display_aa & 4) != 0) {
-    aa_level = 4;
-} else if ((display_aa & 2) != 0) {
-    aa_level = 2;
-}
-// MSAA lands on the application surface now, not the back buffer, and at the
-// detected maximum (often 8x) that alone costs most of the frame. Start with it
-// off; View > Anti-aliasing switches it on at aa_level when you want it.
-aa_on = false;
+// --- DISPLAY (vsync on, no MSAA) ---
+// MSAA is gone. It was cheap while the editor drew straight to the back
+// buffer, but once the 3D view moved onto the application surface for the
+// post FX it became a full multisampled render target every frame, for
+// almost no visible gain on this geometry.
 display_reset(0, true);
 // --- CAMERA VARIABLES ---
 cam_dist = 12;
@@ -262,7 +254,6 @@ menu_defs = [
             { label: "-",                key: "",     act: "",           mode: "3d" },
             { label: "Grid",             key: "G",    act: "grid",       mode: "3d" },
             { label: "Tile texture filter", key: "T", act: "tex_filter", mode: "3d" },
-            { label: "Anti-aliasing (MSAA)", key: "", act: "aa_toggle",  mode: "3d" },
             { label: "Backface culling", key: "B",    act: "cull",       mode: "3d" },
             { label: "Fit sheet",        key: "Home",   act: "pe_fit",        mode: "pe" },
             { label: "Zoom in",          key: "=",      act: "pe_zoom_in",    mode: "pe" },

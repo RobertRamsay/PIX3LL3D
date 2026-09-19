@@ -1,0 +1,73 @@
+diff --git a/objects/obj_editor/Create_0.gml b/objects/obj_editor/Create_0.gml
+index 6d91042..4acea4e 100644
+--- a/objects/obj_editor/Create_0.gml
++++ b/objects/obj_editor/Create_0.gml
+@@ -37,19 +37,11 @@ ui_last_h = 0;
+ application_surface_enable(true);
+ application_surface_draw_enable(false);
+ 
+-// --- ANTI-ALIASING (MSAA smooths grid lines and polygon edges) ---
+-aa_level = 0;
+-if ((display_aa & 8) != 0) {
+-    aa_level = 8;
+-} else if ((display_aa & 4) != 0) {
+-    aa_level = 4;
+-} else if ((display_aa & 2) != 0) {
+-    aa_level = 2;
+-}
+-// MSAA lands on the application surface now, not the back buffer, and at the
+-// detected maximum (often 8x) that alone costs most of the frame. Start with it
+-// off; View > Anti-aliasing switches it on at aa_level when you want it.
+-aa_on = false;
++// --- DISPLAY (vsync on, no MSAA) ---
++// MSAA is gone. It was cheap while the editor drew straight to the back
++// buffer, but once the 3D view moved onto the application surface for the
++// post FX it became a full multisampled render target every frame, for
++// almost no visible gain on this geometry.
+ display_reset(0, true);
+ // --- CAMERA VARIABLES ---
+ cam_dist = 12;
+@@ -262,7 +254,6 @@ menu_defs = [
+             { label: "-",                key: "",     act: "",           mode: "3d" },
+             { label: "Grid",             key: "G",    act: "grid",       mode: "3d" },
+             { label: "Tile texture filter", key: "T", act: "tex_filter", mode: "3d" },
+-            { label: "Anti-aliasing (MSAA)", key: "", act: "aa_toggle",  mode: "3d" },
+             { label: "Backface culling", key: "B",    act: "cull",       mode: "3d" },
+             { label: "Fit sheet",        key: "Home",   act: "pe_fit",        mode: "pe" },
+             { label: "Zoom in",          key: "=",      act: "pe_zoom_in",    mode: "pe" },
+diff --git a/objects/obj_editor/Step_0.gml b/objects/obj_editor/Step_0.gml
+index 8f96659..ed3ca34 100644
+--- a/objects/obj_editor/Step_0.gml
++++ b/objects/obj_editor/Step_0.gml
+@@ -244,19 +244,6 @@ if (keyboard_check_pressed(ord("T")) || menu_action == "tex_filter") {
+     tex_filter_on = !tex_filter_on;
+ }
+ 
+-// --- ANTI-ALIASING TOGGLE ---
+-if (menu_action == "aa_toggle") {
+-    aa_on = !aa_on;
+-    if (aa_level == 0) {
+-        aa_on = false; // hardware offers no MSAA levels
+-    }
+-    if (aa_on) {
+-        display_reset(aa_level, true);
+-    } else {
+-        display_reset(0, true);
+-    }
+-}
+-
+ // --- BACKFACE CULLING TOGGLE ---
+ if (keyboard_check_pressed(ord("B")) || menu_action == "cull") {
+     cull_on = !cull_on;
+diff --git a/scripts/MENU_system/MENU_system.gml b/scripts/MENU_system/MENU_system.gml
+index f1a65c3..7d264c4 100644
+--- a/scripts/MENU_system/MENU_system.gml
++++ b/scripts/MENU_system/MENU_system.gml
+@@ -534,7 +534,6 @@ function menu_item_checked(_act)
+     {
+         case "grid":          return grid_visible;
+         case "tex_filter":    return tex_filter_on;
+-        case "aa_toggle":     return aa_on;
+         case "cull":          return cull_on;
+         case "tiles_builtin": return !global.tile_is_custom;
+         case "tiles_custom":  return global.tile_is_custom;

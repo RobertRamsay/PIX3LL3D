@@ -244,19 +244,6 @@ if (keyboard_check_pressed(ord("T")) || menu_action == "tex_filter") {
     tex_filter_on = !tex_filter_on;
 }
 
-// --- ANTI-ALIASING TOGGLE ---
-if (menu_action == "aa_toggle") {
-    aa_on = !aa_on;
-    if (aa_level == 0) {
-        aa_on = false; // hardware offers no MSAA levels
-    }
-    if (aa_on) {
-        display_reset(aa_level, true);
-    } else {
-        display_reset(0, true);
-    }
-}
-
 // --- BACKFACE CULLING TOGGLE ---
 if (keyboard_check_pressed(ord("B")) || menu_action == "cull") {
     cull_on = !cull_on;

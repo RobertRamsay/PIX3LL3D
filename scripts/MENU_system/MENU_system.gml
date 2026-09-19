@@ -534,7 +534,6 @@ function menu_item_checked(_act)
     {
         case "grid":          return grid_visible;
         case "tex_filter":    return tex_filter_on;
-        case "aa_toggle":     return aa_on;
         case "cull":          return cull_on;
         case "tiles_builtin": return !global.tile_is_custom;
         case "tiles_custom":  return global.tile_is_custom;
