@@ -10,6 +10,7 @@ if (!pe_open)
 if (pe_open)
 {
     pe_draw();
+    tileset_msg_draw();
     about_banner_draw();
     about_draw();
     menu_draw();
@@ -191,6 +192,9 @@ if (palette_open) {
 
 // --- POST FX CONTROL PANEL ---
 postfx_panel_draw();
+
+// --- TILESET STATUS (re-slice confirmation) ---
+tileset_msg_draw();
 
 // --- UPDATE BANNER (over the viewport, under the menu bar) ---
 about_banner_draw();

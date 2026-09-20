@@ -147,8 +147,11 @@ global.tile_custom_path = "";      // source PNG of the imported set ("" = none)
 // Cell size of the ACTIVE sheet. tileset_import sets this to whatever it
 // sliced at, and switching sheets restores the right one.
 global.tile_cell = sprite_get_width(spr_tile);
-// What the next import should use: 0 = detect from the sheet, or 8/16/24/32
+// What the next import / re-slice should use: 0 = detect, or 8/16/24/32
 global.tile_cell_pref = 0;
+// Short-lived confirmation line, so a re-slice is never silent
+tile_msg = "";
+tile_msg_timer = 0;
 global.tile_is_custom = false;     // true when the active set is the custom one
 
 
@@ -326,19 +329,19 @@ menu_defs = [
         ]
     },
     {
-        title: "Tileset", mode: "3d",
+        title: "Tileset", mode: "all",
         items: [
             { label: "Import PNG...",     key: "Ctrl+I", act: "tiles_import",  mode: "3d" },
             { label: "-",                 key: "",       act: "",              mode: "3d" },
             { label: "Built-in tileset",  key: "F1",     act: "tiles_builtin", mode: "3d" },
             { label: "Custom tileset",    key: "F2",     act: "tiles_custom",  mode: "3d" },
             { label: "-",                 key: "",       act: "",              mode: "3d" },
-            { label: "Cell size: auto",   key: "",       act: "cell_auto",     mode: "3d" },
-            { label: "Cell size: 8",      key: "",       act: "cell_8",        mode: "3d" },
-            { label: "Cell size: 16",     key: "",       act: "cell_16",       mode: "3d" },
-            { label: "Cell size: 24",     key: "",       act: "cell_24",       mode: "3d" },
-            { label: "Cell size: 32",     key: "",       act: "cell_32",       mode: "3d" },
-            { label: "Re-slice at this size", key: "",   act: "cell_reimport", mode: "3d" },
+            { label: "Cell size: auto",   key: "",       act: "cell_auto",     mode: "all" },
+            { label: "Cell size: 8",      key: "",       act: "cell_8",        mode: "all" },
+            { label: "Cell size: 16",     key: "",       act: "cell_16",       mode: "all" },
+            { label: "Cell size: 24",     key: "",       act: "cell_24",       mode: "all" },
+            { label: "Cell size: 32",     key: "",       act: "cell_32",       mode: "all" },
+            { label: "Re-slice at this size", key: "",   act: "cell_reimport", mode: "all" },
             { label: "-",                 key: "",       act: "",              mode: "3d" },
             { label: "Pixel editor",      key: "P",      act: "pe_toggle",     mode: "3d" }
         ]

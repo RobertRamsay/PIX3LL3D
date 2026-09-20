@@ -23,6 +23,78 @@ if (about_visible)
     exit;
 }
 
+// --- TILESET CELL SIZE (works in BOTH editors, so it sits above the pe branch) ---
+if (tile_msg_timer > 0)
+{
+    tile_msg_timer -= 1;
+}
+
+if (menu_action == "cell_auto")
+{
+    global.tile_cell_pref = 0;
+}
+if (menu_action == "cell_8")
+{
+    global.tile_cell_pref = 8;
+}
+if (menu_action == "cell_16")
+{
+    global.tile_cell_pref = 16;
+}
+if (menu_action == "cell_24")
+{
+    global.tile_cell_pref = 24;
+}
+if (menu_action == "cell_32")
+{
+    global.tile_cell_pref = 32;
+}
+
+// Re-slice whatever sheet is loaded, built-in or imported, at the chosen size
+if (menu_action == "cell_reimport")
+{
+    var _was_pe = pe_open;
+
+    // Bake any pixel edits first so re-slicing never loses work
+    if (_was_pe)
+    {
+        pe_apply();
+    }
+
+    var _re = tileset_reslice_active(global.tile_cell_pref, palette_cols);
+    if (_re >= 0)
+    {
+        var _old = global.tile_custom;
+        global.tile_custom = _re;
+        global.tile_sprite = _re;
+        global.tile_is_custom = true;
+        palette_cols = max(1, global.tile_custom_cols);
+        active_sub = 0;
+        brush_subs = [0];
+        brush_cols = 1;
+        brush_rows = 1;
+
+        if (_old >= 0 && sprite_exists(_old) && _old != _re)
+        {
+            sprite_delete(_old);
+        }
+
+        tile_msg = "Re-sliced at " + string(global.tile_cell) + "px - " + string(sprite_get_number(_re)) + " tiles, " + string(palette_cols) + " cols";
+        tile_msg_timer = room_speed * 4;
+
+        // Reload the pixel editor so it picks up the new cell size
+        if (_was_pe)
+        {
+            pe_open_editor();
+        }
+    }
+    else
+    {
+        tile_msg = "Cannot re-slice this sheet at that size - try another";
+        tile_msg_timer = room_speed * 4;
+    }
+}
+
 // --- PIXEL EDITOR (takes over all input while open) ---
 if (pe_open)
 {
@@ -328,43 +400,6 @@ if ((_ctrl && keyboard_check_pressed(ord("L"))) || menu_action == "scene_load") 
     if (_path != "") {
         if (scene_load(_path)) {
             scene_path = _path;
-        }
-    }
-}
-
-// --- TILESET CELL SIZE (applies to the NEXT import; 0 = detect) ---
-if (menu_action == "cell_auto") {
-    global.tile_cell_pref = 0;
-}
-if (menu_action == "cell_8") {
-    global.tile_cell_pref = 8;
-}
-if (menu_action == "cell_16") {
-    global.tile_cell_pref = 16;
-}
-if (menu_action == "cell_24") {
-    global.tile_cell_pref = 24;
-}
-if (menu_action == "cell_32") {
-    global.tile_cell_pref = 32;
-}
-
-// Re-slice the sheet already loaded, at the size just chosen
-if (menu_action == "cell_reimport") {
-    if (global.tile_custom_path != "" && file_exists(global.tile_custom_path)) {
-        var _re = tileset_import(global.tile_custom_path, global.tile_cell_pref);
-        if (_re >= 0) {
-            if (global.tile_custom >= 0 && sprite_exists(global.tile_custom)) {
-                sprite_delete(global.tile_custom);
-            }
-            global.tile_custom = _re;
-            global.tile_sprite = _re;
-            global.tile_is_custom = true;
-            palette_cols = max(1, global.tile_custom_cols);
-            active_sub = 0;
-            brush_subs = [0];
-            brush_cols = 1;
-            brush_rows = 1;
         }
     }
 }
