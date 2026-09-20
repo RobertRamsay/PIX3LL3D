@@ -13,6 +13,7 @@ if (pe_open)
     tileset_msg_draw();
     about_banner_draw();
     about_draw();
+    demo_draw();
     menu_draw();
     exit;
 }
@@ -201,6 +202,9 @@ about_banner_draw();
 
 // --- ABOUT PANEL (modal, over the editor but under the menu bar) ---
 about_draw();
+
+// --- PRO PANEL (modal, demo builds only) ---
+demo_draw();
 
 // --- MENU BAR (last, so drop-downs sit over everything) ---
 menu_draw();

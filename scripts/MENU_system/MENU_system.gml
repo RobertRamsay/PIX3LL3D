@@ -599,6 +599,11 @@ function menu_draw()
     {
         _mode_text = "PIXEL EDITOR  |  " + pe_tool_label(pe_tool);
     }
+    if (DEMO_MODE)
+    {
+        _mode_text = "DEMO  |  " + _mode_text;
+    }
+
     draw_set_halign(fa_right);
     draw_set_colour(c_ltgray);
     draw_text(_gw - 10, menu_bar_h * 0.5, _mode_text);

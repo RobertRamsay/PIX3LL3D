@@ -232,6 +232,12 @@ function pe_apply()
 /// @desc Save the sheet as a PNG. Asks for a path if none yet or _ask is true.
 function pe_save_png(_ask)
 {
+    // Demo build stops here and explains why (see DEMO_system)
+    if (demo_lock("Saving the tileset as a PNG"))
+    {
+        return;
+    }
+
     pe_float_commit();
 
     var _path = pe_png_path;

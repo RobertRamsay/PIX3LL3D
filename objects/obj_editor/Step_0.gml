@@ -23,6 +23,13 @@ if (about_visible)
     exit;
 }
 
+// --- PRO PANEL (modal in both editors; demo builds only) ---
+demo_update();
+if (demo_visible)
+{
+    exit;
+}
+
 // --- TILESET CELL SIZE (works in BOTH editors, so it sits above the pe branch) ---
 if (tile_msg_timer > 0)
 {
@@ -355,10 +362,14 @@ var _ctrl = keyboard_check(vk_control);
 
     if ((_alt && _shift && keyboard_check_pressed(ord("S"))) || menu_action == "export_obj")
     {
-        var _obj_path = get_save_filename_safe("OBJ model|*.obj", "model.obj");
-        if (_obj_path != "")
+        // Demo build stops here and explains why (see DEMO_system)
+        if (!demo_lock("OBJ export"))
         {
-            scene_export_obj(_obj_path);
+            var _obj_path = get_save_filename_safe("OBJ model|*.obj", "model.obj");
+            if (_obj_path != "")
+            {
+                scene_export_obj(_obj_path);
+            }
         }
     }
 

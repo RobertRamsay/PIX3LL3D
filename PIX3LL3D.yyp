@@ -29,6 +29,7 @@
     {"id":{"name":"ABOUT_system","path":"scripts/ABOUT_system/ABOUT_system.yy",},},
     {"id":{"name":"brush_rotate_cw","path":"scripts/brush_rotate_cw/brush_rotate_cw.yy",},},
     {"id":{"name":"BRUSH_system","path":"scripts/BRUSH_system/BRUSH_system.yy",},},
+    {"id":{"name":"DEMO_system","path":"scripts/DEMO_system/DEMO_system.yy",},},
     {"id":{"name":"draw_line_3d","path":"scripts/draw_line_3d/draw_line_3d.yy",},},
     {"id":{"name":"draw_skybox","path":"scripts/draw_skybox/draw_skybox.yy",},},
     {"id":{"name":"draw_tile_quad_textured","path":"scripts/draw_tile_quad_textured/draw_tile_quad_textured.yy",},},

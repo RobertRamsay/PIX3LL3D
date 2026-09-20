@@ -207,6 +207,15 @@ about_banner_y = 0;
 about_banner_get = [0, 0, 0, 0];
 about_banner_close = [0, 0, 0, 0];
 
+// --- DEMO / PRO GATE (see DEMO_system; one macro, DEMO_MODE) ---
+demo_visible = false;         // true while the PRO panel is up
+demo_feature = "";            // which locked feature opened it
+demo_hover = "";              // "", "get" or "close"
+demo_x = 0;                   // panel rect (set by demo_layout)
+demo_y = 0;
+demo_btn_get = [0, 0, 0, 0];
+demo_btn_close = [0, 0, 0, 0];
+
 // Quiet check at launch; the result only shows up if there is something newer
 if (ABOUT_CHECK_ON_START)
 {
@@ -270,12 +279,12 @@ menu_defs = [
             { label: "Save scene as...", key: "Ctrl+Shift+S", act: "scene_save_as", mode: "3d" },
             { label: "Load scene...",    key: "Ctrl+L",       act: "scene_load",    mode: "3d" },
             { label: "-",                key: "",             act: "",              mode: "3d" },
-            { label: "Export OBJ...",    key: "Alt+Shift+S",  act: "export_obj",    mode: "3d" },
+            { label: demo_label("Export OBJ..."), key: "Alt+Shift+S", act: "export_obj", mode: "3d" },
             { label: "-",                key: "",             act: "",              mode: "3d" },
             { label: "Restart",          key: "Enter",        act: "restart",       mode: "3d" },
             { label: "Quit",             key: "Esc",          act: "quit",          mode: "3d" },
-            { label: "Save texture PNG",      key: "Ctrl+S",       act: "pe_save_png",    mode: "pe" },
-            { label: "Save texture PNG as...", key: "Ctrl+Shift+S", act: "pe_save_png_as", mode: "pe" },
+            { label: demo_label("Save texture PNG"), key: "Ctrl+S",  act: "pe_save_png",    mode: "pe" },
+            { label: demo_label("Save texture PNG as..."), key: "Ctrl+Shift+S", act: "pe_save_png_as", mode: "pe" },
             { label: "-",                     key: "",             act: "",               mode: "pe" },
             { label: "Apply to tiles",        key: "Enter",        act: "pe_apply",       mode: "pe" },
             { label: "Close pixel editor",    key: "P / Esc",      act: "pe_close",       mode: "pe" }
