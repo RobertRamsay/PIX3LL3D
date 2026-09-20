@@ -39,15 +39,21 @@ function scene_load(_path) {
         // Restore the tileset this scene was saved with
         var _want_custom = false;
         var _want_path = "";
+        var _want_cell = 0;   // 0 = let the importer detect it (legacy saves)
         if (variable_struct_exists(_data, "tileset")) {
             var _ts = _data.tileset;
             _want_custom = variable_struct_exists(_ts, "is_custom") ? _ts.is_custom : false;
             _want_path = variable_struct_exists(_ts, "path") ? _ts.path : "";
+            // The cell size was always written but never read back, so a scene
+            // saved with one cell size reimported at whatever was current.
+            if (variable_struct_exists(_ts, "cell")) {
+                _want_cell = _ts.cell;
+            }
         }
 
         if (_want_custom && _want_path != "" && file_exists(_want_path)) {
             // Re-import the original sheet and switch to it
-            var _loaded = tileset_import(_want_path, global.tile_cell);
+            var _loaded = tileset_import(_want_path, _want_cell);
             if (_loaded >= 0) {
                 if (global.tile_custom >= 0 && sprite_exists(global.tile_custom)) {
                     sprite_delete(global.tile_custom);
@@ -61,6 +67,7 @@ function scene_load(_path) {
                 // Import failed — fall back to built-in
                 global.tile_sprite = spr_tile;
                 global.tile_is_custom = false;
+                global.tile_cell = sprite_get_width(spr_tile);
                 palette_cols = palette_cols_builtin;
                 show_debug_message("Scene load: custom tileset failed to import, using built-in.");
             }
@@ -71,6 +78,7 @@ function scene_load(_path) {
             }
             global.tile_sprite = spr_tile;
             global.tile_is_custom = false;
+            global.tile_cell = sprite_get_width(spr_tile);
             palette_cols = palette_cols_builtin;
         }
     } else {
@@ -78,6 +86,7 @@ function scene_load(_path) {
         global.world_tiles = _data;
         global.tile_sprite = spr_tile;
         global.tile_is_custom = false;
+        global.tile_cell = sprite_get_width(spr_tile);
         palette_cols = palette_cols_builtin;
     }
 

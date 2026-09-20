@@ -332,11 +332,48 @@ if ((_ctrl && keyboard_check_pressed(ord("L"))) || menu_action == "scene_load") 
     }
 }
 
+// --- TILESET CELL SIZE (applies to the NEXT import; 0 = detect) ---
+if (menu_action == "cell_auto") {
+    global.tile_cell_pref = 0;
+}
+if (menu_action == "cell_8") {
+    global.tile_cell_pref = 8;
+}
+if (menu_action == "cell_16") {
+    global.tile_cell_pref = 16;
+}
+if (menu_action == "cell_24") {
+    global.tile_cell_pref = 24;
+}
+if (menu_action == "cell_32") {
+    global.tile_cell_pref = 32;
+}
+
+// Re-slice the sheet already loaded, at the size just chosen
+if (menu_action == "cell_reimport") {
+    if (global.tile_custom_path != "" && file_exists(global.tile_custom_path)) {
+        var _re = tileset_import(global.tile_custom_path, global.tile_cell_pref);
+        if (_re >= 0) {
+            if (global.tile_custom >= 0 && sprite_exists(global.tile_custom)) {
+                sprite_delete(global.tile_custom);
+            }
+            global.tile_custom = _re;
+            global.tile_sprite = _re;
+            global.tile_is_custom = true;
+            palette_cols = max(1, global.tile_custom_cols);
+            active_sub = 0;
+            brush_subs = [0];
+            brush_cols = 1;
+            brush_rows = 1;
+        }
+    }
+}
+
 // --- TILESET IMPORT (Ctrl+I) / SWITCH (F2 custom, F1 built-in) ---
 if ((_ctrl && keyboard_check_pressed(ord("I"))) || menu_action == "tiles_import") {
     var _ts_path = get_open_filename_safe("PNG image (*.png)|*.png", "");
     if (_ts_path != "") {
-        var _loaded = tileset_import(_ts_path, global.tile_cell);
+        var _loaded = tileset_import(_ts_path, global.tile_cell_pref);
         if (_loaded >= 0) {
             if (global.tile_custom >= 0 && sprite_exists(global.tile_custom)) {
                 sprite_delete(global.tile_custom);
@@ -358,6 +395,7 @@ if (keyboard_check_pressed(vk_f2) || menu_action == "tiles_custom") {
     if (global.tile_custom >= 0 && sprite_exists(global.tile_custom)) {
         global.tile_sprite = global.tile_custom;
         global.tile_is_custom = true;
+        global.tile_cell = sprite_get_width(global.tile_custom);
         palette_cols = max(1, global.tile_custom_cols);
         active_sub = 0;
         brush_subs = [0];
@@ -369,6 +407,7 @@ if (keyboard_check_pressed(vk_f2) || menu_action == "tiles_custom") {
 if (keyboard_check_pressed(vk_f1) || menu_action == "tiles_builtin") {
     global.tile_sprite = spr_tile;
     global.tile_is_custom = false;
+    global.tile_cell = sprite_get_width(spr_tile);
     palette_cols = palette_cols_builtin;
     active_sub = 0;
     brush_subs = [0];

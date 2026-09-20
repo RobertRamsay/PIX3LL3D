@@ -539,6 +539,11 @@ function menu_item_checked(_act)
         case "grid":          return grid_visible;
         case "tex_filter":    return tex_filter_on;
         case "cull":          return cull_on;
+        case "cell_auto":     return (global.tile_cell_pref == 0);
+        case "cell_8":        return (global.tile_cell_pref == 8);
+        case "cell_16":       return (global.tile_cell_pref == 16);
+        case "cell_24":       return (global.tile_cell_pref == 24);
+        case "cell_32":       return (global.tile_cell_pref == 32);
         case "tiles_builtin": return !global.tile_is_custom;
         case "tiles_custom":  return global.tile_is_custom;
         case "fullscreen":    return win_is_full;
