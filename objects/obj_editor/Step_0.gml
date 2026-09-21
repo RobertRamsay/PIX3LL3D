@@ -597,8 +597,8 @@ if (palette_open) {
         // New tile(s) picked: the decal offset goes back to 0 (same as
         // pressing 0). Plane depth is kept.
         grid_offset = 0;
-
         palette_drag_start = -1;
+		brush_nudge_reset() // also reset the nudge
     }
 }
 
