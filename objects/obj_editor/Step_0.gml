@@ -675,6 +675,110 @@ var _ray_x = _ghost_fwd_x + (_ghost_right_x * _mx_ndc * _ghost_aspect + _ghost_u
 var _ray_y = _ghost_fwd_y + (_ghost_right_y * _mx_ndc * _ghost_aspect + _ghost_up_y * _my_ndc) * _ghost_fov_scale;
 var _ray_z = _ghost_fwd_z + (_ghost_right_z * _mx_ndc * _ghost_aspect + _ghost_up_z * _my_ndc) * _ghost_fov_scale;
 
+// --- SHIFT TAP: MATCH DEPTH TO THE TILE UNDER THE CURSOR ---
+// Shift pressed and released on its own (no other key or click in between)
+// raycasts the placed tiles of the active plane and sets this plane's depth to
+// the nearest one hit - the same value Q/E would have to be dialled to.
+// Shift+arrows, Ctrl+Shift+S and so on never count as a tap.
+var _shift_tap = false;
+if (keyboard_check_pressed(vk_shift)) {
+    shift_tap_armed = true;
+    if (keyboard_check(vk_control) || keyboard_check(vk_alt)) {
+        shift_tap_armed = false;
+    }
+}
+else if (keyboard_check(vk_shift)) {
+    if (keyboard_check_pressed(vk_anykey) || mouse_check_button_pressed(mb_any)) {
+        shift_tap_armed = false;
+    }
+    if (mouse_wheel_up() || mouse_wheel_down()) {
+        shift_tap_armed = false;
+    }
+}
+if (keyboard_check_released(vk_shift)) {
+    if (shift_tap_armed && !palette_open && !menu_blocks_mouse) {
+        _shift_tap = true;
+    }
+    shift_tap_armed = false;
+}
+
+if (_shift_tap) {
+    var _match_found = false;
+    var _match_t = 0;
+    var _match_depth = 0;
+    var _match_names = variable_struct_get_names(global.world_tiles);
+    var _ha = 0;
+    var _hb = 0;
+
+    for (var _mi = 0; _mi < array_length(_match_names); _mi++) {
+        var _mt = variable_struct_get(global.world_tiles, _match_names[_mi]);
+        if (_mt.plane != active_plane) {
+            continue;
+        }
+
+        var _hit_ok = false;
+        var _tt = 0;
+        if (active_plane == "XY") {
+            // Drawn at world Z = -z, plus its decal offset
+            if (abs(_ray_z) > 0.0001) {
+                _tt = (-_mt.z + _mt.off_z - _cz) / _ray_z;
+                _ha = _cx + _ray_x * _tt - _mt.off_x;
+                _hb = _cy + _ray_y * _tt - _mt.off_y;
+                if (_ha >= _mt.x && _ha < _mt.x + 1 && _hb >= _mt.y && _hb < _mt.y + 1) {
+                    _hit_ok = true;
+                }
+            }
+        }
+        if (active_plane == "XZ") {
+            if (abs(_ray_y) > 0.0001) {
+                _tt = (_mt.y + _mt.off_y - _cy) / _ray_y;
+                _ha = _cx + _ray_x * _tt - _mt.off_x;
+                _hb = _cz + _ray_z * _tt - _mt.off_z;
+                if (_ha >= _mt.x && _ha < _mt.x + 1 && _hb >= _mt.z && _hb < _mt.z + 1) {
+                    _hit_ok = true;
+                }
+            }
+        }
+        if (active_plane == "YZ") {
+            if (abs(_ray_x) > 0.0001) {
+                _tt = (_mt.x + _mt.off_x - _cx) / _ray_x;
+                _ha = _cy + _ray_y * _tt - _mt.off_y;
+                _hb = _cz + _ray_z * _tt - _mt.off_z;
+                if (_ha >= _mt.y && _ha < _mt.y + 1 && _hb >= _mt.z && _hb < _mt.z + 1) {
+                    _hit_ok = true;
+                }
+            }
+        }
+
+        // Only in front of the camera, and keep the nearest
+        if (_hit_ok && _tt > 0) {
+            if (!_match_found || _tt < _match_t) {
+                _match_found = true;
+                _match_t = _tt;
+                // A tile's depth is its coordinate on the plane's normal axis
+                if (active_plane == "XY") {
+                    _match_depth = _mt.z;
+                }
+                if (active_plane == "XZ") {
+                    _match_depth = _mt.y;
+                }
+                if (active_plane == "YZ") {
+                    _match_depth = _mt.x;
+                }
+            }
+        }
+    }
+
+    if (_match_found) {
+        _active_offset.depth = _match_depth;
+        tile_msg = "Depth matched: " + string(_match_depth) + " (" + active_plane + ")";
+    }
+    else {
+        tile_msg = "No " + active_plane + " tile under the cursor to match";
+    }
+    tile_msg_timer = room_speed * 2;
+}
+
 // Plane constant: the active plane sits at the offset depth pushed into the scene
 var _hit_x = _cx;
 var _hit_y = _cy;
@@ -722,23 +826,33 @@ if (active_plane == "YZ") {
     ghost_z = floor(_hit_z) + plane_offset_YZ.up_down;
 }
 
-// Decal sub-cell offset along the active plane normal (toward camera side)
+// Decal sub-cell offset along the active plane normal.
+// _toward is the world-axis sign pointing from the plane to the camera, so
+// "1" (grid_offset going negative) always lifts the decal TOWARD the camera
+// and Tab+1 always pushes it away - on every plane, from either side.
 ghost_off_x = 0;
 ghost_off_y = 0;
 ghost_off_z = 0;
-var _off_world = grid_offset * cm_world;
+var _off_world = -grid_offset * cm_world;
+var _toward = 1;
 if (active_plane == "XY") {
-    // -z is up; camera above faces down. Push toward camera side.
-    var _side = (_cz < -ghost_z) ? -1 : 1;
-    ghost_off_z = _off_world * _side;
+    // XY sits at world Z = -ghost_z (negative Z is up)
+    if (_cz < -ghost_z) {
+        _toward = -1;
+    }
+    ghost_off_z = _off_world * _toward;
 }
 if (active_plane == "XZ") {
-    var _side = (_cy < ghost_y) ? -1 : 1;
-    ghost_off_y = _off_world * _side;
+    if (_cy < ghost_y) {
+        _toward = -1;
+    }
+    ghost_off_y = _off_world * _toward;
 }
 if (active_plane == "YZ") {
-    var _side = (_cx < ghost_x) ? 1 : -1;
-    ghost_off_x = _off_world * _side;
+    if (_cx < ghost_x) {
+        _toward = -1;
+    }
+    ghost_off_x = _off_world * _toward;
 }
 
 // Sub-tile nudge on the two in-plane axes, on top of the decal offset
@@ -877,24 +991,26 @@ if (keyboard_check_pressed(vk_delete) || keyboard_check_pressed(vk_backspace) ||
     }
 }
 
-// R rotates: hovered tile if one exists, otherwise the brush/preview.
-// From the menu it always rotates the brush (the mouse is over the menu).
-if (keyboard_check_pressed(ord("R")) || menu_action == "rotate") {
-    if (variable_struct_exists(global.world_tiles, _place_key) && menu_action != "rotate") {
+// R always rotates the held brush (and the preview).
+// Ctrl+R rotates the tile already placed under the cursor, if there is one.
+if (keyboard_check_pressed(ord("R")) && _ctrl) {
+    if (variable_struct_exists(global.world_tiles, _place_key)) {
+        undo_push_snapshot();
         var _hovered = variable_struct_get(global.world_tiles, _place_key);
         _hovered.rot = (_hovered.rot + 1) mod 4;
-    } else {
-        // Rotate the whole brush as a unit: reshape footprint + move tiles
-        if (brush_cols > 1 || brush_rows > 1) {
-            var _rot_result = brush_rotate_cw(brush_subs, brush_cols, brush_rows);
-            brush_subs = _rot_result.subs;
-            brush_cols = _rot_result.cols;
-            brush_rows = _rot_result.rows;
-        }
-        brush_rot = (brush_rot + 1) mod 4;
-        // Each tile's own texture also turns 90°
-        ghost_rot = (ghost_rot + 1) mod 4;
     }
+}
+else if (keyboard_check_pressed(ord("R")) || menu_action == "rotate") {
+    // Rotate the whole brush as a unit: reshape footprint + move tiles
+    if (brush_cols > 1 || brush_rows > 1) {
+        var _rot_result = brush_rotate_cw(brush_subs, brush_cols, brush_rows);
+        brush_subs = _rot_result.subs;
+        brush_cols = _rot_result.cols;
+        brush_rows = _rot_result.rows;
+    }
+    brush_rot = (brush_rot + 1) mod 4;
+    // Each tile's own texture also turns 90°
+    ghost_rot = (ghost_rot + 1) mod 4;
 }
 
 // X flips texture horizontally: hovered tile or preview

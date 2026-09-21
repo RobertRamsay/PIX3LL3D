@@ -31,21 +31,29 @@ gpu_set_zwriteenable(true);
 
 // --- 2. DRAW GROUND GRID (shifted by decal offset along active plane normal) ---
 if (grid_visible) {
-	var _g_off = grid_offset * cm_world;
+	// Same rule as the ghost decal: "1" moves toward the camera, Tab+1 away.
+	var _g_off = -grid_offset * cm_world;
 	var _gx = 0;
 	var _gy = 0;
 	var _gz = 0;
+	var _gtoward = 1;
 	if (active_plane == "XY") {
-	    var _gside = (_cz < 0) ? -1 : 1;
-	    _gz = _g_off * _gside;
+	    if (_cz < 0) {
+	        _gtoward = -1;
+	    }
+	    _gz = _g_off * _gtoward;
 	}
 	if (active_plane == "XZ") {
-	    var _gside = (_cy < 0) ? -1 : 1;
-	    _gy = _g_off * _gside;
+	    if (_cy < 0) {
+	        _gtoward = -1;
+	    }
+	    _gy = _g_off * _gtoward;
 	}
 	if (active_plane == "YZ") {
-	    var _gside = (_cx < 0) ? 1 : -1;
-	    _gx = _g_off * _gside;
+	    if (_cx < 0) {
+	        _gtoward = -1;
+	    }
+	    _gx = _g_off * _gtoward;
 	}
 	// Thick screen-space lines (width: grid_line_px). Includes the mid-blue
 	// zero-offset reference grid whenever the offset is active.

@@ -178,6 +178,9 @@ nudge_y = 0;
 nudge_z = 0;
 nudge_max = 64;          // limit either way, in texels (4 tiles at a 16px cell)
 
+// --- SHIFT TAP (match depth to the tile under the cursor) ---
+shift_tap_armed = false; // true while Shift is held with nothing else pressed
+
 // --- PLANE OFFSETS ---
 plane_offset_XY = { left_right: 0, up_down: 0, depth: 0 };
 plane_offset_XZ = { left_right: 0, up_down: 0, depth: 0 };
