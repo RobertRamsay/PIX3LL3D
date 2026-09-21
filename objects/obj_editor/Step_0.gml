@@ -594,11 +594,9 @@ if (palette_open) {
         ghost_flip_x = FLIP_X_DEFAULT;
         ghost_flip_y = FLIP_Y_DEFAULT;
 
-        // New tile(s) picked: every plane goes back to depth 0, so a depth
-        // matched with Shift (or dialled with Q/E) doesn't carry over.
-        plane_offset_XY.depth = 0;
-        plane_offset_XZ.depth = 0;
-        plane_offset_YZ.depth = 0;
+        // New tile(s) picked: the decal offset goes back to 0 (same as
+        // pressing 0). Plane depth is kept.
+        grid_offset = 0;
 
         palette_drag_start = -1;
     }
