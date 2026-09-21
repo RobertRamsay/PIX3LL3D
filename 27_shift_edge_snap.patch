@@ -1,0 +1,161 @@
+diff --git a/objects/obj_editor/Step_0.gml b/objects/obj_editor/Step_0.gml
+index 0e38343..9ba33bb 100644
+--- a/objects/obj_editor/Step_0.gml
++++ b/objects/obj_editor/Step_0.gml
+@@ -705,8 +705,12 @@ var _ray_z = _ghost_fwd_z + (_ghost_right_z * _mx_ndc * _ghost_aspect + _ghost_u
+ 
+ // --- SHIFT TAP: MATCH DEPTH TO THE TILE UNDER THE CURSOR ---
+ // Shift pressed and released on its own (no other key or click in between)
+-// raycasts the placed tiles of the active plane and sets this plane's depth to
+-// the nearest one hit - the same value Q/E would have to be dialled to.
++// raycasts every placed tile and takes the nearest one hit:
++//  - same plane as the active one: this plane's depth becomes that tile's
++//    depth (the value Q/E would have to be dialled to).
++//  - a perpendicular tile: this plane's depth snaps to whichever of that
++//    tile's two edges lying on the active plane is nearer the cursor, so the
++//    next tile meets it at a clean 90 degree corner.
+ // Shift+arrows, Ctrl+Shift+S and so on never count as a tap.
+ var _shift_tap = false;
+ if (keyboard_check_pressed(vk_shift)) {
+@@ -732,47 +736,51 @@ if (keyboard_check_released(vk_shift)) {
+ 
+ if (_shift_tap) {
+     var _match_found = false;
++    var _match_edge = false;
+     var _match_t = 0;
+     var _match_depth = 0;
+     var _match_names = variable_struct_get_names(global.world_tiles);
+-    var _ha = 0;
+-    var _hb = 0;
++    // Hit point in the tile's own space (its decal offset taken back out)
++    var _hx = 0;
++    var _hy = 0;
++    var _hz = 0;
+ 
+     for (var _mi = 0; _mi < array_length(_match_names); _mi++) {
+         var _mt = variable_struct_get(global.world_tiles, _match_names[_mi]);
+-        if (_mt.plane != active_plane) {
+-            continue;
+-        }
+ 
++        // Test the ray against the tile's OWN plane, whatever is active
+         var _hit_ok = false;
+         var _tt = 0;
+-        if (active_plane == "XY") {
++        if (_mt.plane == "XY") {
+             // Drawn at world Z = -z, plus its decal offset
+             if (abs(_ray_z) > 0.0001) {
+                 _tt = (-_mt.z + _mt.off_z - _cz) / _ray_z;
+-                _ha = _cx + _ray_x * _tt - _mt.off_x;
+-                _hb = _cy + _ray_y * _tt - _mt.off_y;
+-                if (_ha >= _mt.x && _ha < _mt.x + 1 && _hb >= _mt.y && _hb < _mt.y + 1) {
++                _hx = _cx + _ray_x * _tt - _mt.off_x;
++                _hy = _cy + _ray_y * _tt - _mt.off_y;
++                _hz = -_mt.z;
++                if (_hx >= _mt.x && _hx < _mt.x + 1 && _hy >= _mt.y && _hy < _mt.y + 1) {
+                     _hit_ok = true;
+                 }
+             }
+         }
+-        if (active_plane == "XZ") {
++        if (_mt.plane == "XZ") {
+             if (abs(_ray_y) > 0.0001) {
+                 _tt = (_mt.y + _mt.off_y - _cy) / _ray_y;
+-                _ha = _cx + _ray_x * _tt - _mt.off_x;
+-                _hb = _cz + _ray_z * _tt - _mt.off_z;
+-                if (_ha >= _mt.x && _ha < _mt.x + 1 && _hb >= _mt.z && _hb < _mt.z + 1) {
++                _hx = _cx + _ray_x * _tt - _mt.off_x;
++                _hy = _mt.y;
++                _hz = _cz + _ray_z * _tt - _mt.off_z;
++                if (_hx >= _mt.x && _hx < _mt.x + 1 && _hz >= _mt.z && _hz < _mt.z + 1) {
+                     _hit_ok = true;
+                 }
+             }
+         }
+-        if (active_plane == "YZ") {
++        if (_mt.plane == "YZ") {
+             if (abs(_ray_x) > 0.0001) {
+                 _tt = (_mt.x + _mt.off_x - _cx) / _ray_x;
+-                _ha = _cy + _ray_y * _tt - _mt.off_y;
+-                _hb = _cz + _ray_z * _tt - _mt.off_z;
+-                if (_ha >= _mt.y && _ha < _mt.y + 1 && _hb >= _mt.z && _hb < _mt.z + 1) {
++                _hx = _mt.x;
++                _hy = _cy + _ray_y * _tt - _mt.off_y;
++                _hz = _cz + _ray_z * _tt - _mt.off_z;
++                if (_hy >= _mt.y && _hy < _mt.y + 1 && _hz >= _mt.z && _hz < _mt.z + 1) {
+                     _hit_ok = true;
+                 }
+             }
+@@ -783,15 +791,46 @@ if (_shift_tap) {
+             if (!_match_found || _tt < _match_t) {
+                 _match_found = true;
+                 _match_t = _tt;
+-                // A tile's depth is its coordinate on the plane's normal axis
+-                if (active_plane == "XY") {
+-                    _match_depth = _mt.z;
+-                }
+-                if (active_plane == "XZ") {
+-                    _match_depth = _mt.y;
++
++                if (_mt.plane == active_plane) {
++                    // Same plane: a tile's depth is its coordinate on the normal axis
++                    _match_edge = false;
++                    if (active_plane == "XY") {
++                        _match_depth = _mt.z;
++                    }
++                    if (active_plane == "XZ") {
++                        _match_depth = _mt.y;
++                    }
++                    if (active_plane == "YZ") {
++                        _match_depth = _mt.x;
++                    }
+                 }
+-                if (active_plane == "YZ") {
+-                    _match_depth = _mt.x;
++                else {
++                    // Perpendicular: the tile spans one unit along the active
++                    // plane's normal axis. Take the nearer end to the hit.
++                    _match_edge = true;
++                    if (active_plane == "XY") {
++                        // XZ / YZ tiles span world Z [z, z+1]; XY depth = -world Z
++                        var _edge_z = _mt.z;
++                        if (abs(_hz - (_mt.z + 1)) < abs(_hz - _mt.z)) {
++                            _edge_z = _mt.z + 1;
++                        }
++                        _match_depth = -_edge_z;
++                    }
++                    if (active_plane == "XZ") {
++                        // XY / YZ tiles span world Y [y, y+1]; XZ depth = world Y
++                        _match_depth = _mt.y;
++                        if (abs(_hy - (_mt.y + 1)) < abs(_hy - _mt.y)) {
++                            _match_depth = _mt.y + 1;
++                        }
++                    }
++                    if (active_plane == "YZ") {
++                        // XY / XZ tiles span world X [x, x+1]; YZ depth = world X
++                        _match_depth = _mt.x;
++                        if (abs(_hx - (_mt.x + 1)) < abs(_hx - _mt.x)) {
++                            _match_depth = _mt.x + 1;
++                        }
++                    }
+                 }
+             }
+         }
+@@ -799,10 +838,15 @@ if (_shift_tap) {
+ 
+     if (_match_found) {
+         _active_offset.depth = _match_depth;
+-        tile_msg = "Depth matched: " + string(_match_depth) + " (" + active_plane + ")";
++        if (_match_edge) {
++            tile_msg = "Depth snapped to edge: " + string(_match_depth) + " (" + active_plane + ")";
++        }
++        else {
++            tile_msg = "Depth matched: " + string(_match_depth) + " (" + active_plane + ")";
++        }
+     }
+     else {
+-        tile_msg = "No " + active_plane + " tile under the cursor to match";
++        tile_msg = "No tile under the cursor to match";
+     }
+     tile_msg_timer = room_speed * 2;
+ }
