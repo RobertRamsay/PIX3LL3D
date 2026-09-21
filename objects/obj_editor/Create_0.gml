@@ -166,6 +166,8 @@ palette_cols = 31;       // tiles per row (current; changes with tileset)
 palette_cols_builtin = 31; // default columns for the built-in set
 global.tile_custom_cols = 0; // columns in the imported sheet (0 = none)
 palette_cell = 32;       // pixel size of each palette cell
+palette_cell_max = 32;   // full cell size; shrinks toward the min to fit big sheets
+palette_cell_min = 12;   // smallest a cell is allowed to get
 palette_pad = 2         // gap between cells
 palette_x = 0;           // top-left of palette, set to mouse on open
 palette_y = 0;
@@ -177,6 +179,9 @@ nudge_x = 0;
 nudge_y = 0;
 nudge_z = 0;
 nudge_max = 64;          // limit either way, in texels (4 tiles at a 16px cell)
+
+// --- SHIFT TAP (match depth to the tile under the cursor) ---
+shift_tap_armed = false; // true while Shift is held with nothing else pressed
 
 // --- PLANE OFFSETS ---
 plane_offset_XY = { left_right: 0, up_down: 0, depth: 0 };
