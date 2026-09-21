@@ -166,6 +166,8 @@ palette_cols = 31;       // tiles per row (current; changes with tileset)
 palette_cols_builtin = 31; // default columns for the built-in set
 global.tile_custom_cols = 0; // columns in the imported sheet (0 = none)
 palette_cell = 32;       // pixel size of each palette cell
+palette_cell_max = 32;   // full cell size; shrinks toward the min to fit big sheets
+palette_cell_min = 12;   // smallest a cell is allowed to get
 palette_pad = 2         // gap between cells
 palette_x = 0;           // top-left of palette, set to mouse on open
 palette_y = 0;

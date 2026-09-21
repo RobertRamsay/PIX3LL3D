@@ -502,10 +502,32 @@ palette_phase += 0.02; // gradient animation speed (tunable)
 
 if (keyboard_check_pressed(vk_space)) {
     var _count = sprite_get_number(global.tile_sprite);
+    var _rows = max(1, ceil(_count / palette_cols));
+    var _gw = display_get_gui_width();
+    var _gh = display_get_gui_height();
+    var _margin = 8;
+    var _top = menu_bar_h + _margin;
+
+    // Shrink the cells (never below palette_cell_min) when a big sheet
+    // would not fit the screen at full size.
+    var _fit_w = floor((_gw - _margin * 2 - palette_pad) / palette_cols) - palette_pad;
+    var _fit_h = floor((_gh - _top - _margin - palette_pad) / _rows) - palette_pad;
+    palette_cell = clamp(min(_fit_w, _fit_h), palette_cell_min, palette_cell_max);
+
+    // Centre the used columns under the mouse, as before
     var _used_cols = min(_count, palette_cols);
-    var _pw = _used_cols * (palette_cell + palette_pad) + palette_pad;
-    palette_x = device_mouse_x_to_gui(0) - _pw * 0.5;
-    palette_y = device_mouse_y_to_gui(0) + 30;
+    var _used_w = _used_cols * (palette_cell + palette_pad) + palette_pad;
+    palette_x = floor(device_mouse_x_to_gui(0) - _used_w * 0.5);
+    palette_y = floor(device_mouse_y_to_gui(0) + 30);
+
+    // Clamp so the drawn panel (palette_x - pad .. + full width) stays in view.
+    // Right/bottom first, then left/top, so left/top win if it still can't fit.
+    var _pw = palette_cols * (palette_cell + palette_pad) + palette_pad;
+    var _ph = _rows * (palette_cell + palette_pad) + palette_pad;
+    palette_x = min(palette_x, _gw - _margin - _pw + palette_pad);
+    palette_x = max(palette_x, _margin + palette_pad);
+    palette_y = min(palette_y, _gh - _margin - _ph + palette_pad);
+    palette_y = max(palette_y, _top + palette_pad);
 }
 palette_open = keyboard_check(vk_space);
 
@@ -571,6 +593,12 @@ if (palette_open) {
         ghost_rot = 0;
         ghost_flip_x = FLIP_X_DEFAULT;
         ghost_flip_y = FLIP_Y_DEFAULT;
+
+        // New tile(s) picked: every plane goes back to depth 0, so a depth
+        // matched with Shift (or dialled with Q/E) doesn't carry over.
+        plane_offset_XY.depth = 0;
+        plane_offset_XZ.depth = 0;
+        plane_offset_YZ.depth = 0;
 
         palette_drag_start = -1;
     }
