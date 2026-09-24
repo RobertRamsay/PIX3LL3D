@@ -411,3 +411,736 @@ function tile_raycast_nearest(_ox, _oy, _oz, _rx, _ry, _rz)
 
     return _out;
 }
+
+// ============================================================
+//  CLUSTER SELECT / COPY / CLIP HISTORY
+// ============================================================
+// Ctrl+Shift+drag picks a screen-space rectangle and selects every placed tile
+// touching it. Ctrl+C turns the selection into a "clip": a rigid lump of world
+// geometry (each tile keeps its plane, rotation, flips and decal offset) plus a
+// square thumbnail grabbed from the view. Clips sit in a strip down the left
+// edge, newest first. Left-click one to hold it, left-click in the scene to
+// stamp it centred on the cursor cell, right-click one to throw it away.
+
+#macro CLIP_MAX 10        // clips kept in the strip
+#macro CLIP_THUMB 64      // thumbnail pixels (square)
+#macro CLIP_CELL 72       // strip cell size in GUI pixels
+#macro CLIP_PAD 6         // gap between cells
+#macro CLIP_STRIP_X 12    // left margin of the strip
+
+/// @desc Stored tile z -> world z. XY tiles store z up-positive and draw at
+/// world Z = -z; XZ and YZ store world Z directly.
+function clip_world_z(_plane, _z)
+{
+    if (_plane == "XY")
+    {
+        return -_z;
+    }
+    return _z;
+}
+
+/// @desc World z -> stored tile z for a tile on this plane.
+function clip_store_z(_plane, _wz)
+{
+    if (_plane == "XY")
+    {
+        return -_wz;
+    }
+    return _wz;
+}
+
+/// @desc Camera position, axes and lens, matching the 3D view exactly.
+/// Everything needed to project a world point to window pixels.
+function clip_cam_basis()
+{
+    var _px = cam_look_x + dcos(cam_yaw) * dcos(cam_pitch) * cam_dist;
+    var _py = cam_look_y + dsin(cam_yaw) * dcos(cam_pitch) * cam_dist;
+    var _pz = cam_look_z - dsin(cam_pitch) * cam_dist;
+
+    var _fx = cam_look_x - _px;
+    var _fy = cam_look_y - _py;
+    var _fz = cam_look_z - _pz;
+    var _flen = sqrt(_fx * _fx + _fy * _fy + _fz * _fz);
+    if (_flen <= 0)
+    {
+        _flen = 1;
+    }
+    _fx /= _flen;
+    _fy /= _flen;
+    _fz /= _flen;
+
+    var _rx = dcos(cam_yaw - 90);
+    var _ry = dsin(cam_yaw - 90);
+    var _rz = 0;
+
+    var _ux = _ry * _fz - _rz * _fy;
+    var _uy = _rz * _fx - _rx * _fz;
+    var _uz = _rx * _fy - _ry * _fx;
+
+    var _ww = max(1, window_get_width());
+    var _wh = max(1, window_get_height());
+
+    return {
+        px: _px, py: _py, pz: _pz,
+        fx: _fx, fy: _fy, fz: _fz,
+        rx: _rx, ry: _ry, rz: _rz,
+        ux: _ux, uy: _uy, uz: _uz,
+        win_w: _ww,
+        win_h: _wh,
+        aspect: _ww / _wh,
+        tan_half: tan(degtorad(FX_FOV) / 2)
+    };
+}
+
+/// @desc Project a world point to window pixels. ok is false behind the eye.
+function clip_project(_b, _wx, _wy, _wz)
+{
+    var _dx = _wx - _b.px;
+    var _dy = _wy - _b.py;
+    var _dz = _wz - _b.pz;
+
+    var _vz = _dx * _b.fx + _dy * _b.fy + _dz * _b.fz;
+    if (_vz <= 0.01)
+    {
+        return { ok: false, sx: 0, sy: 0 };
+    }
+
+    var _vx = _dx * _b.rx + _dy * _b.ry + _dz * _b.rz;
+    var _vy = _dx * _b.ux + _dy * _b.uy + _dz * _b.uz;
+
+    var _ndc_x = (_vx / _vz) / (_b.tan_half * _b.aspect);
+    var _ndc_y = (_vy / _vz) / _b.tan_half;
+
+    return {
+        ok: true,
+        sx: (_ndc_x * 0.5 + 0.5) * _b.win_w,
+        sy: (0.5 - _ndc_y * 0.5) * _b.win_h
+    };
+}
+
+/// @desc The four world-space corners of a placed tile's quad.
+function clip_tile_corners(_t)
+{
+    var _x = _t.x + _t.off_x;
+    var _y = _t.y + _t.off_y;
+
+    if (_t.plane == "XY")
+    {
+        var _zw = -_t.z + _t.off_z;
+        return [
+            [_x, _y, _zw],
+            [_x + 1, _y, _zw],
+            [_x, _y + 1, _zw],
+            [_x + 1, _y + 1, _zw]
+        ];
+    }
+
+    var _z = _t.z + _t.off_z;
+    if (_t.plane == "XZ")
+    {
+        return [
+            [_x, _y, _z],
+            [_x + 1, _y, _z],
+            [_x, _y, _z + 1],
+            [_x + 1, _y, _z + 1]
+        ];
+    }
+
+    // YZ
+    return [
+        [_x, _y, _z],
+        [_x, _y + 1, _z],
+        [_x, _y, _z + 1],
+        [_x, _y + 1, _z + 1]
+    ];
+}
+
+/// @desc Keys of every placed tile whose projected quad touches this window-space
+/// rectangle. Backfaces are skipped while culling is on, same as picking.
+function clip_select_rect(_x0, _y0, _x1, _y1)
+{
+    var _rx0 = min(_x0, _x1);
+    var _rx1 = max(_x0, _x1);
+    var _ry0 = min(_y0, _y1);
+    var _ry1 = max(_y0, _y1);
+
+    var _b = clip_cam_basis();
+    var _hits = [];
+    var _names = variable_struct_get_names(global.world_tiles);
+
+    for (var _i = 0; _i < array_length(_names); _i++)
+    {
+        var _t = variable_struct_get(global.world_tiles, _names[_i]);
+
+        if (cull_on)
+        {
+            var _face = 0;
+            if (_t.plane == "XY")
+            {
+                _face = _t.nrm_z * (_b.pz - (-_t.z));
+            }
+            if (_t.plane == "XZ")
+            {
+                _face = _t.nrm_y * (_b.py - _t.y);
+            }
+            if (_t.plane == "YZ")
+            {
+                _face = _t.nrm_x * (_b.px - _t.x);
+            }
+            if (_face <= 0)
+            {
+                continue;
+            }
+        }
+
+        var _c = clip_tile_corners(_t);
+        var _minx = 0;
+        var _maxx = 0;
+        var _miny = 0;
+        var _maxy = 0;
+        var _ok = true;
+
+        for (var _k = 0; _k < 4; _k++)
+        {
+            var _p = clip_project(_b, _c[_k][0], _c[_k][1], _c[_k][2]);
+            if (!_p.ok)
+            {
+                _ok = false;
+                break;
+            }
+            if (_k == 0)
+            {
+                _minx = _p.sx;
+                _maxx = _p.sx;
+                _miny = _p.sy;
+                _maxy = _p.sy;
+            }
+            else
+            {
+                _minx = min(_minx, _p.sx);
+                _maxx = max(_maxx, _p.sx);
+                _miny = min(_miny, _p.sy);
+                _maxy = max(_maxy, _p.sy);
+            }
+        }
+
+        if (!_ok)
+        {
+            continue;
+        }
+
+        // Touching counts: plain rectangle overlap
+        if (_maxx >= _rx0 && _minx <= _rx1 && _maxy >= _ry0 && _miny <= _ry1)
+        {
+            array_push(_hits, _names[_i]);
+        }
+    }
+
+    return _hits;
+}
+
+/// @desc Grab a square thumbnail of a window-space rectangle from the last
+/// rendered frame. The square is the longer side of the rectangle, centred on
+/// it and clamped to the view, so nothing is squashed.
+/// Returns a struct: ok, spr, w, h, data (packed pixels for saving).
+function clip_thumb_grab(_x0, _y0, _x1, _y1)
+{
+    var _out = {
+        ok: false,
+        spr: -1,
+        w: CLIP_THUMB,
+        h: CLIP_THUMB,
+        data: ""
+    };
+
+    if (!surface_exists(application_surface))
+    {
+        return _out;
+    }
+
+    var _sw = surface_get_width(application_surface);
+    var _sh = surface_get_height(application_surface);
+    var _scale_x = _sw / max(1, window_get_width());
+    var _scale_y = _sh / max(1, window_get_height());
+
+    var _ax0 = min(_x0, _x1) * _scale_x;
+    var _ax1 = max(_x0, _x1) * _scale_x;
+    var _ay0 = min(_y0, _y1) * _scale_y;
+    var _ay1 = max(_y0, _y1) * _scale_y;
+
+    var _side = max(_ax1 - _ax0, _ay1 - _ay0, 8);
+    _side = min(_side, _sw, _sh);
+
+    var _cx = (_ax0 + _ax1) * 0.5;
+    var _cy = (_ay0 + _ay1) * 0.5;
+    var _gx = clamp(_cx - _side * 0.5, 0, _sw - _side);
+    var _gy = clamp(_cy - _side * 0.5, 0, _sh - _side);
+
+    var _thumb = surface_create(CLIP_THUMB, CLIP_THUMB);
+    surface_set_target(_thumb);
+    draw_clear_alpha(c_black, 1);
+    gpu_set_blendenable(false);
+    gpu_set_tex_filter(true);
+    draw_surface_part_ext(application_surface, _gx, _gy, _side, _side, 0, 0, CLIP_THUMB / _side, CLIP_THUMB / _side, c_white, 1);
+    gpu_set_blendenable(true);
+    surface_reset_target();
+
+    // Pixels kept as well as the sprite, so the clip can go in the scene file
+    var _buf = buffer_create(CLIP_THUMB * CLIP_THUMB * 4, buffer_fixed, 1);
+    buffer_get_surface(_buf, _thumb, 0);
+    var _cmp = buffer_compress(_buf, 0, buffer_get_size(_buf));
+    buffer_delete(_buf);
+    if (_cmp >= 0)
+    {
+        _out.data = buffer_base64_encode(_cmp, 0, buffer_get_size(_cmp));
+        buffer_delete(_cmp);
+    }
+
+    _out.spr = sprite_create_from_surface(_thumb, 0, 0, CLIP_THUMB, CLIP_THUMB, false, false, 0, 0);
+    surface_free(_thumb);
+    _out.ok = (_out.spr >= 0);
+    return _out;
+}
+
+/// @desc Rebuild a thumbnail sprite from packed pixels (loading a scene).
+function clip_thumb_unpack(_w, _h, _data)
+{
+    if (_data == "" || _w <= 0 || _h <= 0)
+    {
+        return -1;
+    }
+
+    var _cmp = buffer_base64_decode(_data);
+    if (_cmp < 0)
+    {
+        return -1;
+    }
+    var _buf = buffer_decompress(_cmp);
+    buffer_delete(_cmp);
+    if (_buf < 0)
+    {
+        return -1;
+    }
+    if (buffer_get_size(_buf) < _w * _h * 4)
+    {
+        buffer_delete(_buf);
+        return -1;
+    }
+
+    var _surf = surface_create(_w, _h);
+    buffer_set_surface(_buf, _surf, 0);
+    buffer_delete(_buf);
+    var _spr = sprite_create_from_surface(_surf, 0, 0, _w, _h, false, false, 0, 0);
+    surface_free(_surf);
+    return _spr;
+}
+
+/// @desc Turn a set of tile keys into a clip and put it at the top of the strip.
+/// _rect is the window-space drag rectangle the thumbnail comes from.
+/// Returns the number of tiles taken.
+function clip_grab(_keys, _rx0, _ry0, _rx1, _ry1)
+{
+    var _count = array_length(_keys);
+    if (_count == 0)
+    {
+        return 0;
+    }
+
+    // Bounds in world space, so mixed planes stay in step with each other
+    var _minx = 0;
+    var _maxx = 0;
+    var _miny = 0;
+    var _maxy = 0;
+    var _minz = 0;
+    var _maxz = 0;
+    var _first = true;
+    var _tiles = [];
+
+    for (var _i = 0; _i < _count; _i++)
+    {
+        if (!variable_struct_exists(global.world_tiles, _keys[_i]))
+        {
+            continue;
+        }
+        var _t = variable_struct_get(global.world_tiles, _keys[_i]);
+        var _wz = clip_world_z(_t.plane, _t.z);
+
+        if (_first)
+        {
+            _minx = _t.x;
+            _maxx = _t.x;
+            _miny = _t.y;
+            _maxy = _t.y;
+            _minz = _wz;
+            _maxz = _wz;
+            _first = false;
+        }
+        else
+        {
+            _minx = min(_minx, _t.x);
+            _maxx = max(_maxx, _t.x);
+            _miny = min(_miny, _t.y);
+            _maxy = max(_maxy, _t.y);
+            _minz = min(_minz, _wz);
+            _maxz = max(_maxz, _wz);
+        }
+
+        // The decal step lives in the tile's key, not the tile itself
+        var _koff = 0;
+        var _parts = string_split(_keys[_i], ",");
+        if (array_length(_parts) >= 5)
+        {
+            _koff = real(_parts[4]);
+        }
+
+        array_push(_tiles, {
+            dx: _t.x,
+            dy: _t.y,
+            dz: _wz,
+            plane: _t.plane,
+            sub: _t.sub,
+            rot: _t.rot,
+            facing: _t.facing,
+            nrm_x: _t.nrm_x,
+            nrm_y: _t.nrm_y,
+            nrm_z: _t.nrm_z,
+            flip_x: _t.flip_x,
+            flip_y: _t.flip_y,
+            off_x: _t.off_x,
+            off_y: _t.off_y,
+            off_z: _t.off_z,
+            koff: _koff
+        });
+    }
+
+    if (array_length(_tiles) == 0)
+    {
+        return 0;
+    }
+
+    // Offsets from the cluster's centre cell
+    var _ax = floor((_minx + _maxx) / 2);
+    var _ay = floor((_miny + _maxy) / 2);
+    var _az = floor((_minz + _maxz) / 2);
+    for (var _i = 0; _i < array_length(_tiles); _i++)
+    {
+        _tiles[_i].dx -= _ax;
+        _tiles[_i].dy -= _ay;
+        _tiles[_i].dz -= _az;
+    }
+
+    var _thumb = clip_thumb_grab(_rx0, _ry0, _rx1, _ry1);
+
+    clip_item_add({
+        tiles: _tiles,
+        thumb_spr: _thumb.spr,
+        thumb_w: _thumb.w,
+        thumb_h: _thumb.h,
+        thumb_data: _thumb.data
+    });
+
+    return array_length(_tiles);
+}
+
+/// @desc Put a clip at the top of the strip, dropping the oldest past CLIP_MAX.
+function clip_item_add(_item)
+{
+    array_insert(global.clip_items, 0, _item);
+
+    while (array_length(global.clip_items) > CLIP_MAX)
+    {
+        var _last = array_length(global.clip_items) - 1;
+        var _old = global.clip_items[_last];
+        if (_old.thumb_spr >= 0 && sprite_exists(_old.thumb_spr))
+        {
+            sprite_delete(_old.thumb_spr);
+        }
+        array_delete(global.clip_items, _last, 1);
+    }
+
+    // The new clip is the one in hand
+    clip_held = 0;
+}
+
+/// @desc Throw a clip away.
+function clip_item_remove(_index)
+{
+    if (_index < 0 || _index >= array_length(global.clip_items))
+    {
+        return;
+    }
+
+    var _item = global.clip_items[_index];
+    if (_item.thumb_spr >= 0 && sprite_exists(_item.thumb_spr))
+    {
+        sprite_delete(_item.thumb_spr);
+    }
+    array_delete(global.clip_items, _index, 1);
+
+    if (clip_held == _index)
+    {
+        clip_held = -1;
+    }
+    else if (clip_held > _index)
+    {
+        clip_held -= 1;
+    }
+}
+
+/// @desc Stamp a clip into the world, centred on a cell of the active plane.
+/// The caller pushes the undo snapshot. Returns the number of tiles written.
+function clip_paste(_index, _gx, _gy, _gz)
+{
+    if (_index < 0 || _index >= array_length(global.clip_items))
+    {
+        return 0;
+    }
+
+    var _item = global.clip_items[_index];
+    var _anchor_z = clip_world_z(active_plane, _gz);
+    var _written = 0;
+
+    for (var _i = 0; _i < array_length(_item.tiles); _i++)
+    {
+        var _c = _item.tiles[_i];
+        var _wx = _gx + _c.dx;
+        var _wy = _gy + _c.dy;
+        var _wz = _anchor_z + _c.dz;
+        var _zs = clip_store_z(_c.plane, _wz);
+
+        var _key = string(_wx) + "," + string(_wy) + "," + string(_zs) + "," + _c.plane + "," + string(_c.koff);
+
+        variable_struct_set(global.world_tiles, _key, {
+            x: _wx,
+            y: _wy,
+            z: _zs,
+            plane: _c.plane,
+            sub: _c.sub,
+            rot: _c.rot,
+            facing: _c.facing,
+            nrm_x: _c.nrm_x,
+            nrm_y: _c.nrm_y,
+            nrm_z: _c.nrm_z,
+            flip_x: _c.flip_x,
+            flip_y: _c.flip_y,
+            off_x: _c.off_x,
+            off_y: _c.off_y,
+            off_z: _c.off_z
+        });
+        _written += 1;
+    }
+
+    return _written;
+}
+
+/// @desc Draw the held clip as a ghost, centred on a cell of the active plane.
+/// Call from the Draw event, inside the 3D camera.
+function clip_ghost_draw(_index, _gx, _gy, _gz)
+{
+    if (_index < 0 || _index >= array_length(global.clip_items))
+    {
+        return;
+    }
+
+    var _item = global.clip_items[_index];
+    var _anchor_z = clip_world_z(active_plane, _gz);
+
+    for (var _i = 0; _i < array_length(_item.tiles); _i++)
+    {
+        var _c = _item.tiles[_i];
+        var _wz = _anchor_z + _c.dz;
+        var _zs = clip_store_z(_c.plane, _wz);
+        draw_tile_quad_textured(_gx + _c.dx, _gy + _c.dy, _zs, _c.plane, c_white, _c.sub, 0.5, _c.rot, _c.facing, _c.off_x, _c.off_y, _c.off_z, _c.flip_x, _c.flip_y);
+    }
+}
+
+/// @desc Strip geometry in GUI pixels. Sits under the axis readout on the left.
+function clip_strip_rect()
+{
+    var _count = array_length(global.clip_items);
+    var _h = _count * CLIP_CELL + max(0, _count - 1) * CLIP_PAD;
+    return {
+        x: CLIP_STRIP_X,
+        y: menu_bar_h + 200,
+        w: CLIP_CELL,
+        h: _h,
+        count: _count
+    };
+}
+
+/// @desc Which clip the mouse is over (-1 for none).
+function clip_strip_hover()
+{
+    var _r = clip_strip_rect();
+    if (_r.count == 0)
+    {
+        return -1;
+    }
+
+    var _mx = device_mouse_x_to_gui(0);
+    var _my = device_mouse_y_to_gui(0);
+
+    if (_mx < _r.x || _mx > _r.x + _r.w)
+    {
+        return -1;
+    }
+
+    for (var _i = 0; _i < _r.count; _i++)
+    {
+        var _cy = _r.y + _i * (CLIP_CELL + CLIP_PAD);
+        if (_my >= _cy && _my <= _cy + CLIP_CELL)
+        {
+            return _i;
+        }
+    }
+    return -1;
+}
+
+/// @desc Strip input: left-click holds a clip, right-click throws it away.
+/// Sets clip_blocks_mouse so the click never reaches the scene as well.
+/// Call in the Step event, before tile placement.
+function clip_strip_update()
+{
+    clip_blocks_mouse = false;
+    clip_hover = clip_strip_hover();
+
+    if (clip_hover < 0)
+    {
+        return;
+    }
+
+    clip_blocks_mouse = true;
+
+    if (mouse_check_button_pressed(mb_left))
+    {
+        clip_held = clip_hover;
+        tile_msg = "Holding cluster " + string(clip_hover + 1) + " - click to place it";
+        tile_msg_timer = room_speed * 2;
+    }
+
+    if (mouse_check_button_pressed(mb_right))
+    {
+        clip_item_remove(clip_hover);
+        clip_hover = clip_strip_hover();
+        tile_msg = "Cluster removed";
+        tile_msg_timer = room_speed * 2;
+    }
+}
+
+/// @desc Draw the strip. Call from Draw GUI, under the menu bar.
+function clip_strip_draw()
+{
+    var _r = clip_strip_rect();
+    if (_r.count == 0)
+    {
+        return;
+    }
+
+    draw_set_font(-1);
+    draw_set_halign(fa_left);
+    draw_set_valign(fa_top);
+
+    for (var _i = 0; _i < _r.count; _i++)
+    {
+        var _item = global.clip_items[_i];
+        var _cx = _r.x;
+        var _cy = _r.y + _i * (CLIP_CELL + CLIP_PAD);
+
+        // Cell backing
+        draw_set_alpha(0.85);
+        draw_set_colour(make_colour_rgb(24, 26, 34));
+        draw_rectangle(_cx, _cy, _cx + CLIP_CELL, _cy + CLIP_CELL, false);
+        draw_set_alpha(1);
+
+        if (_item.thumb_spr >= 0 && sprite_exists(_item.thumb_spr))
+        {
+            var _inset = 4;
+            var _size = CLIP_CELL - _inset * 2;
+            var _scale = _size / max(1, sprite_get_width(_item.thumb_spr));
+            var _old_filter = gpu_get_tex_filter();
+            gpu_set_tex_filter(true);
+            draw_sprite_ext(_item.thumb_spr, 0, _cx + _inset, _cy + _inset, _scale, _scale, 0, c_white, 1);
+            gpu_set_tex_filter(_old_filter);
+        }
+
+        // Border: white when held, yellow when hovered, grey otherwise
+        var _col = make_colour_rgb(90, 94, 110);
+        if (_i == clip_hover)
+        {
+            _col = c_yellow;
+        }
+        if (_i == clip_held)
+        {
+            _col = c_white;
+        }
+        draw_set_colour(_col);
+        draw_rectangle(_cx, _cy, _cx + CLIP_CELL, _cy + CLIP_CELL, true);
+
+        // Tile count, bottom right of the cell
+        draw_set_colour(c_white);
+        var _label = string(array_length(_item.tiles));
+        draw_text(_cx + CLIP_CELL - string_width(_label) - 5, _cy + CLIP_CELL - 18, _label);
+    }
+
+    draw_set_colour(c_white);
+}
+
+/// @desc Clips packed for the scene file.
+function clip_serialize()
+{
+    var _out = [];
+    for (var _i = 0; _i < array_length(global.clip_items); _i++)
+    {
+        var _item = global.clip_items[_i];
+        array_push(_out, {
+            tiles: _item.tiles,
+            thumb_w: _item.thumb_w,
+            thumb_h: _item.thumb_h,
+            thumb_data: _item.thumb_data
+        });
+    }
+    return _out;
+}
+
+/// @desc Replace the strip with clips read back from a scene file.
+function clip_deserialize(_list)
+{
+    for (var _i = 0; _i < array_length(global.clip_items); _i++)
+    {
+        var _old = global.clip_items[_i];
+        if (_old.thumb_spr >= 0 && sprite_exists(_old.thumb_spr))
+        {
+            sprite_delete(_old.thumb_spr);
+        }
+    }
+    global.clip_items = [];
+    clip_held = -1;
+    clip_hover = -1;
+
+    if (!is_array(_list))
+    {
+        return;
+    }
+
+    for (var _i = 0; _i < array_length(_list) && _i < CLIP_MAX; _i++)
+    {
+        var _src = _list[_i];
+        var _w = CLIP_THUMB;
+        var _h = CLIP_THUMB;
+        var _data = "";
+        if (variable_struct_exists(_src, "thumb_w"))
+        {
+            _w = _src.thumb_w;
+            _h = _src.thumb_h;
+            _data = _src.thumb_data;
+        }
+
+        array_push(global.clip_items, {
+            tiles: _src.tiles,
+            thumb_spr: clip_thumb_unpack(_w, _h, _data),
+            thumb_w: _w,
+            thumb_h: _h,
+            thumb_data: _data
+        });
+    }
+}

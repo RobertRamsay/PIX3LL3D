@@ -203,10 +203,25 @@ bg_ui_update();
 // Post FX toggles, shortcuts and the slider panel (can claim the mouse and Esc)
 postfx_update();
 
+// Clip strip down the left edge (claims the mouse over its cells)
+clip_strip_update();
+
 if ((keyboard_check_pressed(ord("P")) && !keyboard_check(vk_control)) || menu_action == "pe_toggle")
 {
     pe_open_editor();
     exit;
+}
+
+// Esc first cancels a selection or puts down the held cluster
+if (keyboard_check_pressed(vk_escape) && !menu_esc_consumed)
+{
+    if (clip_held >= 0 || sel_dragging || array_length(sel_keys) > 0)
+    {
+        clip_held = -1;
+        sel_keys = [];
+        sel_dragging = false;
+        menu_esc_consumed = true;
+    }
 }
 
 if ((keyboard_check_pressed(vk_escape) && !menu_esc_consumed) || menu_action == "quit")
@@ -721,6 +736,7 @@ if (palette_open) {
         // New tile(s) picked: the decal offset goes back to 0 (same as
         // pressing 0). Plane depth is kept.
         grid_offset = 0;
+        clip_held = -1; // back to single tiles
         palette_drag_start = -1;
 		brush_nudge_reset() // also reset the nudge
     }
@@ -850,7 +866,7 @@ else if (keyboard_check(vk_shift)) {
     }
 }
 if (keyboard_check_released(vk_shift)) {
-    if (shift_tap_armed && !palette_open && !menu_blocks_mouse) {
+    if (shift_tap_armed && !palette_open && !menu_blocks_mouse && !clip_blocks_mouse) {
         _shift_tap = true;
     }
     shift_tap_armed = false;
@@ -921,7 +937,7 @@ if (_shift_tap) {
 // --- ALT+CLICK PICKS THE TILE UNDER THE CURSOR ---
 // The tile under the cursor becomes the held tile, orientation and all, so it
 // can be carried on with elsewhere. Alt+click never places anything.
-if (mouse_check_button_pressed(mb_left) && keyboard_check(vk_alt) && !palette_open && !menu_blocks_mouse) {
+if (mouse_check_button_pressed(mb_left) && keyboard_check(vk_alt) && !palette_open && !menu_blocks_mouse && !clip_blocks_mouse) {
     var _pick = tile_raycast_nearest(_cx, _cy, _cz, _ray_x, _ray_y, _ray_z);
 
     if (_pick.found) {
@@ -934,6 +950,7 @@ if (mouse_check_button_pressed(mb_left) && keyboard_check(vk_alt) && !palette_op
         ghost_rot = _pt.rot;
         ghost_flip_x = _pt.flip_x;
         ghost_flip_y = _pt.flip_y;
+        clip_held = -1; // back to single tiles
 
         tile_msg = "Picked tile " + string(_pt.sub);
         tile_msg_timer = room_speed * 2;
@@ -1023,23 +1040,70 @@ if (active_plane == "YZ") {
 // Sub-tile nudge on the two in-plane axes, on top of the decal offset
 brush_nudge_apply();
 
+// --- 5b. CLUSTER SELECT (Ctrl+Shift drag) AND COPY (Ctrl+C) ---
+var _sel_mod = (_ctrl && keyboard_check(vk_shift));
+
+if (_sel_mod && mouse_check_button_pressed(mb_left) && !palette_open && !menu_blocks_mouse && !clip_blocks_mouse) {
+    sel_dragging = true;
+    sel_x0 = window_mouse_get_x();
+    sel_y0 = window_mouse_get_y();
+    sel_x1 = sel_x0;
+    sel_y1 = sel_y0;
+}
+
+if (sel_dragging) {
+    sel_x1 = window_mouse_get_x();
+    sel_y1 = window_mouse_get_y();
+
+    if (mouse_check_button_released(mb_left)) {
+        sel_dragging = false;
+        sel_keys = clip_select_rect(sel_x0, sel_y0, sel_x1, sel_y1);
+
+        if (array_length(sel_keys) > 0) {
+            tile_msg = string(array_length(sel_keys)) + " tiles selected - Ctrl+C to copy";
+        }
+        else {
+            tile_msg = "Nothing in that rectangle";
+        }
+        tile_msg_timer = room_speed * 3;
+    }
+}
+
+if (_ctrl && keyboard_check_pressed(ord("C")) && array_length(sel_keys) > 0) {
+    var _grabbed = clip_grab(sel_keys, sel_x0, sel_y0, sel_x1, sel_y1);
+    if (_grabbed > 0) {
+        tile_msg = "Copied " + string(_grabbed) + " tiles - click to place, Esc to put it down";
+        tile_msg_timer = room_speed * 3;
+        sel_keys = [];
+    }
+}
+
 // --- 6. TILE PLACEMENT / REMOVAL ---
 var _place_key = string(ghost_x) + "," + string(ghost_y) + "," + string(ghost_z) + "," + active_plane + "," + string(grid_offset);
 
 // Left click places or replaces the whole brush footprint (not while palette
 // open). Holding the button keeps painting: each new cell the ghost moves onto
 // is stamped, and the whole drag is one undo step.
-if (mouse_check_button_pressed(mb_left) && !keyboard_check(vk_alt) && !palette_open && !menu_blocks_mouse) {
-    paint_active = true;
-    paint_last_key = "";
-    undo_push_snapshot();
+if (mouse_check_button_pressed(mb_left) && !keyboard_check(vk_alt) && !_sel_mod && !palette_open && !menu_blocks_mouse && !clip_blocks_mouse) {
+    if (clip_held >= 0) {
+        // A held cluster stamps once per click, centred on the ghost cell
+        undo_push_snapshot();
+        var _pasted = clip_paste(clip_held, ghost_x, ghost_y, ghost_z);
+        tile_msg = "Placed " + string(_pasted) + " tiles";
+        tile_msg_timer = room_speed * 2;
+    }
+    else {
+        paint_active = true;
+        paint_last_key = "";
+        undo_push_snapshot();
+    }
 }
 if (mouse_check_button_released(mb_left)) {
     paint_active = false;
 }
 
 // Painting stops the moment the mouse leaves the viewport rules it started under
-if (paint_active && (palette_open || menu_blocks_mouse || keyboard_check(vk_alt))) {
+if (paint_active && (palette_open || menu_blocks_mouse || clip_blocks_mouse || keyboard_check(vk_alt) || clip_held >= 0)) {
     paint_active = false;
 }
 
@@ -1139,7 +1203,7 @@ if (paint_active && _place_key != paint_last_key) {
 // Backspace, Delete, or Right Mouse removes the whole brush footprint
 // Right mouse erases the same way: press starts a stroke, holding keeps
 // erasing every new cell, and the whole drag is one undo step.
-if (mouse_check_button_pressed(mb_right) && !menu_blocks_mouse) {
+if (mouse_check_button_pressed(mb_right) && !menu_blocks_mouse && !clip_blocks_mouse) {
     erase_active = true;
     erase_last_key = "";
     undo_push_snapshot();
@@ -1147,7 +1211,7 @@ if (mouse_check_button_pressed(mb_right) && !menu_blocks_mouse) {
 if (mouse_check_button_released(mb_right)) {
     erase_active = false;
 }
-if (erase_active && menu_blocks_mouse) {
+if (erase_active && (menu_blocks_mouse || clip_blocks_mouse)) {
     erase_active = false;
 }
 

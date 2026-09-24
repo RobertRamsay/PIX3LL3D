@@ -155,6 +155,18 @@ global.tile_cell_pref = 0;
 tile_msg = "";
 sheet_new_pending = "";     // size action awaiting a second pick (unsaved edits)
 
+// --- CLUSTER SELECT / CLIP HISTORY (Ctrl+Shift drag, Ctrl+C; see BRUSH_system) ---
+global.clip_items = [];   // clips, newest first: tiles + thumbnail
+sel_keys = [];            // keys of the tiles currently selected
+sel_dragging = false;     // Ctrl+Shift rubber band in progress
+sel_x0 = 0;               // drag start / end, in window pixels
+sel_y0 = 0;
+sel_x1 = 0;
+sel_y1 = 0;
+clip_held = -1;           // index of the clip in hand (-1 = none)
+clip_hover = -1;          // index under the mouse in the strip (-1 = none)
+clip_blocks_mouse = false; // the strip owns the mouse this frame
+
 // --- PAINT / ERASE STROKES (hold the mouse button and move) ---
 paint_active = false;    // left button held after a valid press
 paint_last_key = "";     // last cell stamped in this stroke

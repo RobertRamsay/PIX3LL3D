@@ -28,7 +28,8 @@ function scene_save(_path) {
             sheet_cols: _sheet.cols,
             sheet_data: _sheet.data
         },
-        tiles: global.world_tiles
+        tiles: global.world_tiles,
+        clips: clip_serialize()
     };
 
     var _str = json_stringify(_envelope);
@@ -55,6 +56,14 @@ function scene_load(_path) {
 
     if (_is_envelope) {
         global.world_tiles = _data.tiles;
+
+        // Copied clusters travel with the scene (thumbnails and all)
+        if (variable_struct_exists(_data, "clips")) {
+            clip_deserialize(_data.clips);
+        }
+        else {
+            clip_deserialize([]);
+        }
 
         // Restore the tileset this scene was saved with
         var _want_custom = false;

@@ -73,15 +73,33 @@ for (var i = 0; i < array_length(_names); i++) {
     draw_tile_quad_textured(_t.x, _t.y, _t.z, _t.plane, c_white, _t.sub, 1, _t.rot, _t.facing, _t.off_x, _t.off_y, _t.off_z, _t.flip_x, _t.flip_y);
 }
 
+// --- 3b. HIGHLIGHT THE SELECTION (drawn through the scene so it always reads) ---
+if (array_length(sel_keys) > 0) {
+    gpu_set_cullmode(cull_noculling);
+    gpu_set_ztestenable(false);
+    for (var _si = 0; _si < array_length(sel_keys); _si++) {
+        if (variable_struct_exists(global.world_tiles, sel_keys[_si])) {
+            var _st = variable_struct_get(global.world_tiles, sel_keys[_si]);
+            draw_tile_quad_textured(_st.x, _st.y, _st.z, _st.plane, c_yellow, _st.sub, 0.4, _st.rot, _st.facing, _st.off_x, _st.off_y, _st.off_z, _st.flip_x, _st.flip_y);
+        }
+    }
+    gpu_set_ztestenable(true);
+}
+
 // --- 4. DRAW GHOST TILE (always visible, never culled; hidden while orbiting) ---
 gpu_set_cullmode(cull_noculling);
 if (!mouse_check_button(mb_right) && !mouse_check_button(mb_middle) && !palette_open && !menu_blocks_mouse) {
+    // A held cluster replaces the single-tile ghost
+    if (clip_held >= 0) {
+        clip_ghost_draw(clip_held, ghost_x, ghost_y, ghost_z);
+    }
+
     var _ghost_facing = 1;
     if (active_plane == "XY") { _ghost_facing = (_cz < -ghost_z) ? -1 : 1; }
     if (active_plane == "XZ") { _ghost_facing = (_cy < ghost_y) ? -1 : 1; }
     if (active_plane == "YZ") { _ghost_facing = (_cx < ghost_x) ? -1 : 1; }
 
-    for (var _gr = 0; _gr < brush_rows; _gr++) {
+    for (var _gr = 0; _gr < brush_rows && clip_held < 0; _gr++) {
         for (var _gc = 0; _gc < brush_cols; _gc++) {
             var _garr_flip_x = (ghost_flip_x != FLIP_X_DEFAULT);
             var _garr_flip_y = (ghost_flip_y != FLIP_Y_DEFAULT);

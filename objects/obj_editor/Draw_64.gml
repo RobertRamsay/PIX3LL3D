@@ -202,6 +202,27 @@ if (palette_open) {
 // --- POST FX CONTROL PANEL ---
 postfx_panel_draw();
 
+// --- CLUSTER SELECT RUBBER BAND (window pixels -> GUI pixels) ---
+if (sel_dragging) {
+    var _band_sx = display_get_gui_width() / max(1, window_get_width());
+    var _band_sy = display_get_gui_height() / max(1, window_get_height());
+    var _bx0 = min(sel_x0, sel_x1) * _band_sx;
+    var _bx1 = max(sel_x0, sel_x1) * _band_sx;
+    var _by0 = min(sel_y0, sel_y1) * _band_sy;
+    var _by1 = max(sel_y0, sel_y1) * _band_sy;
+
+    draw_set_alpha(0.15);
+    draw_set_colour(c_yellow);
+    draw_rectangle(_bx0, _by0, _bx1, _by1, false);
+    draw_set_alpha(1);
+    draw_set_colour(c_yellow);
+    draw_rectangle(_bx0, _by0, _bx1, _by1, true);
+    draw_set_colour(c_white);
+}
+
+// --- CLIP STRIP (clusters copied with Ctrl+C) ---
+clip_strip_draw();
+
 // --- TILESET STATUS (re-slice confirmation) ---
 tileset_msg_draw();
 
