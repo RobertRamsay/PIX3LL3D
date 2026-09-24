@@ -1,0 +1,440 @@
+diff --git a/objects/obj_editor/Create_0.gml b/objects/obj_editor/Create_0.gml
+index 9230279..ad57cd1 100644
+--- a/objects/obj_editor/Create_0.gml
++++ b/objects/obj_editor/Create_0.gml
+@@ -331,7 +331,7 @@ menu_defs = [
+             { label: "Flip brush H",        key: "X",      act: "flip_x", mode: "3d" },
+             { label: "Flip brush V",        key: "Y",      act: "flip_y", mode: "3d" },
+             { label: "-",                   key: "",       act: "",       mode: "3d" },
+-            { label: "Remove back-to-back faces", key: "", act: "clean_faces", mode: "3d" }
++            { label: "Remove duplicate / back-to-back faces", key: "", act: "clean_faces", mode: "3d" }
+         ]
+     },
+     {
+diff --git a/objects/obj_editor/Step_0.gml b/objects/obj_editor/Step_0.gml
+index 38bf60f..c523ac5 100644
+--- a/objects/obj_editor/Step_0.gml
++++ b/objects/obj_editor/Step_0.gml
+@@ -613,12 +613,12 @@ if ((_ctrl && keyboard_check_pressed(ord("Y"))) || menu_action == "redo") {
+ // Sweep the whole scene for faces sitting back to back
+ if (menu_action == "clean_faces") {
+     undo_push_snapshot();
+-    var _cleaned = world_cancel_back_to_back();
+-    if (_cleaned > 0) {
+-        tile_msg = "Removed " + string(_cleaned) + " faces sitting back to back";
++    var _cleaned = world_rekey();
++    if (_cleaned.dropped + _cleaned.cancelled > 0) {
++        tile_msg = "Removed " + string(_cleaned.dropped) + " duplicate and " + string(_cleaned.cancelled) + " back-to-back faces";
+     }
+     else {
+-        tile_msg = "No back-to-back faces found";
++        tile_msg = "Every face already has its own place";
+     }
+     tile_msg_timer = room_speed * 3;
+ }
+@@ -1120,7 +1120,7 @@ if (_ctrl && keyboard_check_pressed(ord("C")) && array_length(sel_keys) > 0 && !
+ }
+ 
+ // --- 6. TILE PLACEMENT / REMOVAL ---
+-var _place_key = string(ghost_x) + "," + string(ghost_y) + "," + string(ghost_z) + "," + active_plane + "," + string(grid_offset);
++var _place_key = tile_key(ghost_x, ghost_y, ghost_z, active_plane, ghost_off_x, ghost_off_y, ghost_off_z);
+ 
+ // Left click places or replaces the whole brush footprint (not while palette
+ // open). Holding the button keeps painting: each new cell the ghost moves onto
+@@ -1221,7 +1221,7 @@ if (paint_active && _place_key != paint_last_key) {
+                 _tz += (_br - _ctr_r); // Z (reversed), centered
+             }
+ 
+-            var _bkey = string(_tx) + "," + string(_ty) + "," + string(_tz) + "," + active_plane + "," + string(grid_offset);
++            var _bkey = tile_key(_tx, _ty, _tz, active_plane, ghost_off_x, ghost_off_y, ghost_off_z);
+ 
+             variable_struct_set(global.world_tiles, _bkey, {
+                 x: _tx,
+@@ -1308,7 +1308,7 @@ if (_erase_now) {
+                 _dz += (_dr - _dctr_r);
+             }
+ 
+-            var _dkey = string(_dx) + "," + string(_dy) + "," + string(_dz) + "," + active_plane + "," + string(grid_offset);
++            var _dkey = tile_key(_dx, _dy, _dz, active_plane, ghost_off_x, ghost_off_y, ghost_off_z);
+ 
+             if (variable_struct_exists(global.world_tiles, _dkey)) {
+                 struct_remove(global.world_tiles, _dkey);
+diff --git a/scripts/BRUSH_system/BRUSH_system.gml b/scripts/BRUSH_system/BRUSH_system.gml
+index 66ed178..217a924 100644
+--- a/scripts/BRUSH_system/BRUSH_system.gml
++++ b/scripts/BRUSH_system/BRUSH_system.gml
+@@ -289,6 +289,143 @@ function brush_nudge_text()
+     return _la + brush_nudge_num(_a) + " " + _lb + brush_nudge_num(_b) + " px";
+ }
+ 
++// ============================================================
++//  TILE KEYS AND FACING
++// ============================================================
++// A tile's key says where it physically is: cell, plane, and how far its decal
++// offset pushes it along the plane's own world axis, in cm steps. Two tiles in
++// the same physical place always make the same key, so the tile struct can
++// only ever hold one of them.
++//
++// The key used to end with the raw decal counter (grid_offset), whose
++// direction flips with the camera side. That let "1 from above" and "Tab+1
++// from below" land in the same spot under different keys - two faces in one
++// place - while two different spots could share a key and overwrite each other.
++
++/// @desc A whole number as key text. Never "-0", never float noise.
++function tile_key_num(_v)
++{
++    var _r = round(_v);
++    if (_r == 0)
++    {
++        return "0";
++    }
++    return string(_r);
++}
++
++/// @desc Signed decal step along the plane's own world axis.
++function tile_offset_step(_plane, _ox, _oy, _oz)
++{
++    var _o = _oz;
++    if (_plane == "XZ")
++    {
++        _o = _oy;
++    }
++    if (_plane == "YZ")
++    {
++        _o = _ox;
++    }
++    return round(_o / cm_world);
++}
++
++/// @desc The key for a tile at this cell / plane / decal offset.
++function tile_key(_x, _y, _z, _plane, _ox, _oy, _oz)
++{
++    return tile_key_num(_x) + "," + tile_key_num(_y) + "," + tile_key_num(_z) + "," + _plane + "," + tile_key_num(tile_offset_step(_plane, _ox, _oy, _oz));
++}
++
++/// @desc The key a tile struct belongs under.
++function tile_key_of(_t)
++{
++    return tile_key(_t.x, _t.y, _t.z, _t.plane, _t.off_x, _t.off_y, _t.off_z);
++}
++
++/// @desc True when the tile's visible side faces this point. Uses the same
++/// winding the draw function builds: XY and XZ show toward +axis at facing >= 0,
++/// YZ toward -X. (Reading nrm_x for YZ got this backwards: the placement code
++/// stores nrm_x = facing, which points AWAY from a YZ wall's visible side.)
++function tile_faces_point(_t, _px, _py, _pz)
++{
++    var _f = 1;
++    if (_t.facing < 0)
++    {
++        _f = -1;
++    }
++
++    if (_t.plane == "XY")
++    {
++        return (_f * (_pz - (-_t.z + _t.off_z))) > 0;
++    }
++    if (_t.plane == "XZ")
++    {
++        return (_f * (_py - (_t.y + _t.off_y))) > 0;
++    }
++    return (-_f * (_px - (_t.x + _t.off_x))) > 0;
++}
++
++/// @desc Tiles from old saves can predate some fields. Fill in what the key
++/// and facing code needs so nothing reads a missing variable.
++function tile_fill_defaults(_t)
++{
++    if (!variable_struct_exists(_t, "off_x"))
++    {
++        _t.off_x = 0;
++        _t.off_y = 0;
++        _t.off_z = 0;
++    }
++    if (!variable_struct_exists(_t, "facing"))
++    {
++        _t.facing = 1;
++    }
++}
++
++/// @desc Rebuild every key from the tile it holds. Anything left sharing a
++/// place is resolved: same facing keeps one, opposite facing cancels both.
++/// Run on load (older saves keyed by the raw decal counter) and from the
++/// Edit menu. Returns a struct: dropped (duplicates), cancelled (pairs x2).
++function world_rekey()
++{
++    var _out = { dropped: 0, cancelled: 0 };
++    var _fresh = {};
++    var _dead = {};
++    var _names = variable_struct_get_names(global.world_tiles);
++
++    for (var _i = 0; _i < array_length(_names); _i++)
++    {
++        var _t = variable_struct_get(global.world_tiles, _names[_i]);
++        tile_fill_defaults(_t);
++        var _k = tile_key_of(_t);
++
++        if (variable_struct_exists(_dead, _k))
++        {
++            _out.dropped += 1;
++            continue;
++        }
++
++        if (variable_struct_exists(_fresh, _k))
++        {
++            var _there = variable_struct_get(_fresh, _k);
++            if (sign(_there.facing) == -sign(_t.facing))
++            {
++                // Back to back in one place: neither can be the right one
++                struct_remove(_fresh, _k);
++                variable_struct_set(_dead, _k, true);
++                _out.cancelled += 2;
++            }
++            else
++            {
++                _out.dropped += 1;
++            }
++            continue;
++        }
++
++        variable_struct_set(_fresh, _k, _t);
++    }
++
++    global.world_tiles = _fresh;
++    return _out;
++}
++
+ /// @desc Raycast every placed tile and return the nearest one the ray hits.
+ /// Each tile is tested against its OWN plane, so a ray finds floors and walls
+ /// alike. Used by the Shift depth match and by Alt+click tile picking.
+@@ -327,26 +464,10 @@ function tile_raycast_nearest(_ox, _oy, _oz, _rx, _ry, _rz)
+         var _hit_ok = false;
+         var _tt = 0;
+ 
+-        // Skip what the view is culling anyway (normal points away from us)
+-        if (cull_on)
++        // Skip what the view is culling anyway (its visible side faces away)
++        if (cull_on && !tile_faces_point(_t, _ox, _oy, _oz))
+         {
+-            var _face = 0;
+-            if (_t.plane == "XY")
+-            {
+-                _face = _t.nrm_z * (_oz - (-_t.z));
+-            }
+-            if (_t.plane == "XZ")
+-            {
+-                _face = _t.nrm_y * (_oy - _t.y);
+-            }
+-            if (_t.plane == "YZ")
+-            {
+-                _face = _t.nrm_x * (_ox - _t.x);
+-            }
+-            if (_face <= 0)
+-            {
+-                continue;
+-            }
++            continue;
+         }
+ 
+         if (_t.plane == "XY")
+@@ -572,25 +693,9 @@ function clip_select_rect(_x0, _y0, _x1, _y1)
+     {
+         var _t = variable_struct_get(global.world_tiles, _names[_i]);
+ 
+-        if (cull_on)
++        if (cull_on && !tile_faces_point(_t, _b.px, _b.py, _b.pz))
+         {
+-            var _face = 0;
+-            if (_t.plane == "XY")
+-            {
+-                _face = _t.nrm_z * (_b.pz - (-_t.z));
+-            }
+-            if (_t.plane == "XZ")
+-            {
+-                _face = _t.nrm_y * (_b.py - _t.y);
+-            }
+-            if (_t.plane == "YZ")
+-            {
+-                _face = _t.nrm_x * (_b.px - _t.x);
+-            }
+-            if (_face <= 0)
+-            {
+-                continue;
+-            }
++            continue;
+         }
+ 
+         var _c = clip_tile_corners(_t);
+@@ -785,7 +890,7 @@ function clip_grab(_keys, _rx0, _ry0, _rx1, _ry1)
+             _maxz = max(_maxz, _wz);
+         }
+ 
+-        // The decal step lives in the tile's key, not the tile itself
++        // Kept for older clip data; keys now come from the offset itself
+         var _koff = 0;
+         var _parts = string_split(_keys[_i], ",");
+         if (array_length(_parts) >= 5)
+@@ -889,84 +994,6 @@ function clip_item_remove(_index)
+     }
+ }
+ 
+-/// @desc Index the placed tiles by cell and plane: "x,y,z,plane" -> array of
+-/// their keys in global.world_tiles. Two tiles can share a cell when their
+-/// decal offsets differ, which is why this is a list rather than one key.
+-function world_face_index()
+-{
+-    var _idx = {};
+-    var _names = variable_struct_get_names(global.world_tiles);
+-
+-    for (var _i = 0; _i < array_length(_names); _i++)
+-    {
+-        var _t = variable_struct_get(global.world_tiles, _names[_i]);
+-        var _cell = string(_t.x) + "," + string(_t.y) + "," + string(_t.z) + "," + _t.plane;
+-
+-        if (!variable_struct_exists(_idx, _cell))
+-        {
+-            variable_struct_set(_idx, _cell, []);
+-        }
+-        array_push(variable_struct_get(_idx, _cell), _names[_i]);
+-    }
+-
+-    return _idx;
+-}
+-
+-/// @desc Cell key for the index above.
+-function world_face_cell(_x, _y, _z, _plane)
+-{
+-    return string(_x) + "," + string(_y) + "," + string(_z) + "," + _plane;
+-}
+-
+-/// @desc Throw away faces that sit in the same place pointing opposite ways.
+-/// They can never both be seen, and looking from either side shows one of them,
+-/// which is where stray undersides come from. Returns how many went.
+-/// The caller pushes the undo snapshot.
+-function world_cancel_back_to_back()
+-{
+-    var _idx = world_face_index();
+-    var _cells = variable_struct_get_names(_idx);
+-    var _removed = 0;
+-
+-    for (var _i = 0; _i < array_length(_cells); _i++)
+-    {
+-        var _keys = variable_struct_get(_idx, _cells[_i]);
+-        if (array_length(_keys) < 2)
+-        {
+-            continue;
+-        }
+-
+-        var _has_front = false;
+-        var _has_back = false;
+-        for (var _k = 0; _k < array_length(_keys); _k++)
+-        {
+-            var _t = variable_struct_get(global.world_tiles, _keys[_k]);
+-            if (_t.facing >= 0)
+-            {
+-                _has_front = true;
+-            }
+-            else
+-            {
+-                _has_back = true;
+-            }
+-        }
+-
+-        if (_has_front && _has_back)
+-        {
+-            for (var _k = 0; _k < array_length(_keys); _k++)
+-            {
+-                if (variable_struct_exists(global.world_tiles, _keys[_k]))
+-                {
+-                    struct_remove(global.world_tiles, _keys[_k]);
+-                    _removed += 1;
+-                }
+-            }
+-        }
+-    }
+-
+-    return _removed;
+-}
+-
+ /// @desc Stamp a clip into the world, centred on a cell of the active plane.
+ /// The caller pushes the undo snapshot.
+ /// A face landing where an opposite-facing one already sits cancels it out:
+@@ -983,7 +1010,6 @@ function clip_paste(_index, _gx, _gy, _gz)
+ 
+     var _item = global.clip_items[_index];
+     var _anchor_z = clip_world_z(active_plane, _gz);
+-    var _idx = world_face_index();
+ 
+     for (var _i = 0; _i < array_length(_item.tiles); _i++)
+     {
+@@ -993,35 +1019,21 @@ function clip_paste(_index, _gx, _gy, _gz)
+         var _wz = _anchor_z + _c.dz;
+         var _zs = clip_store_z(_c.plane, _wz);
+ 
+-        var _key = string(_wx) + "," + string(_wy) + "," + string(_zs) + "," + _c.plane + "," + string(_c.koff);
++        var _key = tile_key(_wx, _wy, _zs, _c.plane, _c.off_x, _c.off_y, _c.off_z);
+ 
+-        // Anything already in this cell facing the other way cancels with it
+-        var _cell = world_face_cell(_wx, _wy, _zs, _c.plane);
+-        var _cancelled_here = false;
+-        if (variable_struct_exists(_idx, _cell))
++        // One face per place. Something already here facing the other way
++        // cancels with the newcomer; facing the same way, the newcomer wins.
++        if (variable_struct_exists(global.world_tiles, _key))
+         {
+-            var _there = variable_struct_get(_idx, _cell);
+-            for (var _k = 0; _k < array_length(_there); _k++)
++            var _old = variable_struct_get(global.world_tiles, _key);
++            if (sign(_old.facing) == -sign(_c.facing))
+             {
+-                if (!variable_struct_exists(global.world_tiles, _there[_k]))
+-                {
+-                    continue;
+-                }
+-                var _old = variable_struct_get(global.world_tiles, _there[_k]);
+-                if (sign(_old.facing) == -sign(_c.facing))
+-                {
+-                    struct_remove(global.world_tiles, _there[_k]);
+-                    _result.cancelled += 1;
+-                    _cancelled_here = true;
+-                }
++                struct_remove(global.world_tiles, _key);
++                _result.cancelled += 1;
++                continue;
+             }
+         }
+ 
+-        if (_cancelled_here)
+-        {
+-            continue;
+-        }
+-
+         variable_struct_set(global.world_tiles, _key, {
+             x: _wx,
+             y: _wy,
+diff --git a/scripts/scene_save/scene_save.gml b/scripts/scene_save/scene_save.gml
+index f2680ce..121a699 100644
+--- a/scripts/scene_save/scene_save.gml
++++ b/scripts/scene_save/scene_save.gml
+@@ -57,6 +57,13 @@ function scene_load(_path) {
+     if (_is_envelope) {
+         global.world_tiles = _data.tiles;
+ 
++        // Re-key every tile by where it physically is. Older saves keyed decals
++        // by the raw decal counter, and could hold two faces in one place.
++        var _rk = world_rekey();
++        if (_rk.dropped + _rk.cancelled > 0) {
++            show_debug_message("Scene load: tidied " + string(_rk.dropped) + " duplicate and " + string(_rk.cancelled) + " back-to-back faces.");
++        }
++
+         // Copied clusters travel with the scene (thumbnails and all)
+         if (variable_struct_exists(_data, "clips")) {
+             clip_deserialize(_data.clips);
+@@ -144,6 +151,7 @@ function scene_load(_path) {
+     } else {
+         // Legacy save: just the tiles, assume built-in tileset
+         global.world_tiles = _data;
++        world_rekey();
+         global.tile_sprite = spr_tile;
+         global.tile_is_custom = false;
+         global.tile_cell = sprite_get_width(spr_tile);

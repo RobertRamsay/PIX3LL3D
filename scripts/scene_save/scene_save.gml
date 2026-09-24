@@ -57,6 +57,13 @@ function scene_load(_path) {
     if (_is_envelope) {
         global.world_tiles = _data.tiles;
 
+        // Re-key every tile by where it physically is. Older saves keyed decals
+        // by the raw decal counter, and could hold two faces in one place.
+        var _rk = world_rekey();
+        if (_rk.dropped + _rk.cancelled > 0) {
+            show_debug_message("Scene load: tidied " + string(_rk.dropped) + " duplicate and " + string(_rk.cancelled) + " back-to-back faces.");
+        }
+
         // Copied clusters travel with the scene (thumbnails and all)
         if (variable_struct_exists(_data, "clips")) {
             clip_deserialize(_data.clips);
@@ -144,6 +151,7 @@ function scene_load(_path) {
     } else {
         // Legacy save: just the tiles, assume built-in tileset
         global.world_tiles = _data;
+        world_rekey();
         global.tile_sprite = spr_tile;
         global.tile_is_custom = false;
         global.tile_cell = sprite_get_width(spr_tile);

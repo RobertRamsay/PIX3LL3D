@@ -331,7 +331,7 @@ menu_defs = [
             { label: "Flip brush H",        key: "X",      act: "flip_x", mode: "3d" },
             { label: "Flip brush V",        key: "Y",      act: "flip_y", mode: "3d" },
             { label: "-",                   key: "",       act: "",       mode: "3d" },
-            { label: "Remove back-to-back faces", key: "", act: "clean_faces", mode: "3d" }
+            { label: "Remove duplicate / back-to-back faces", key: "", act: "clean_faces", mode: "3d" }
         ]
     },
     {

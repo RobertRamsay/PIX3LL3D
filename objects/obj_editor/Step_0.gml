@@ -613,12 +613,12 @@ if ((_ctrl && keyboard_check_pressed(ord("Y"))) || menu_action == "redo") {
 // Sweep the whole scene for faces sitting back to back
 if (menu_action == "clean_faces") {
     undo_push_snapshot();
-    var _cleaned = world_cancel_back_to_back();
-    if (_cleaned > 0) {
-        tile_msg = "Removed " + string(_cleaned) + " faces sitting back to back";
+    var _cleaned = world_rekey();
+    if (_cleaned.dropped + _cleaned.cancelled > 0) {
+        tile_msg = "Removed " + string(_cleaned.dropped) + " duplicate and " + string(_cleaned.cancelled) + " back-to-back faces";
     }
     else {
-        tile_msg = "No back-to-back faces found";
+        tile_msg = "Every face already has its own place";
     }
     tile_msg_timer = room_speed * 3;
 }
@@ -1120,7 +1120,7 @@ if (_ctrl && keyboard_check_pressed(ord("C")) && array_length(sel_keys) > 0 && !
 }
 
 // --- 6. TILE PLACEMENT / REMOVAL ---
-var _place_key = string(ghost_x) + "," + string(ghost_y) + "," + string(ghost_z) + "," + active_plane + "," + string(grid_offset);
+var _place_key = tile_key(ghost_x, ghost_y, ghost_z, active_plane, ghost_off_x, ghost_off_y, ghost_off_z);
 
 // Left click places or replaces the whole brush footprint (not while palette
 // open). Holding the button keeps painting: each new cell the ghost moves onto
@@ -1221,7 +1221,7 @@ if (paint_active && _place_key != paint_last_key) {
                 _tz += (_br - _ctr_r); // Z (reversed), centered
             }
 
-            var _bkey = string(_tx) + "," + string(_ty) + "," + string(_tz) + "," + active_plane + "," + string(grid_offset);
+            var _bkey = tile_key(_tx, _ty, _tz, active_plane, ghost_off_x, ghost_off_y, ghost_off_z);
 
             variable_struct_set(global.world_tiles, _bkey, {
                 x: _tx,
@@ -1308,7 +1308,7 @@ if (_erase_now) {
                 _dz += (_dr - _dctr_r);
             }
 
-            var _dkey = string(_dx) + "," + string(_dy) + "," + string(_dz) + "," + active_plane + "," + string(grid_offset);
+            var _dkey = tile_key(_dx, _dy, _dz, active_plane, ghost_off_x, ghost_off_y, ghost_off_z);
 
             if (variable_struct_exists(global.world_tiles, _dkey)) {
                 struct_remove(global.world_tiles, _dkey);
