@@ -610,6 +610,19 @@ if ((_ctrl && keyboard_check_pressed(ord("Y"))) || menu_action == "redo") {
     redo_perform();
 }
 
+// Sweep the whole scene for faces sitting back to back
+if (menu_action == "clean_faces") {
+    undo_push_snapshot();
+    var _cleaned = world_cancel_back_to_back();
+    if (_cleaned > 0) {
+        tile_msg = "Removed " + string(_cleaned) + " faces sitting back to back";
+    }
+    else {
+        tile_msg = "No back-to-back faces found";
+    }
+    tile_msg_timer = room_speed * 3;
+}
+
 // --- DECAL OFFSET (1 forward, Tab+1 back, 0 reset) ---
 var _decal_step = 0;
 if (keyboard_check_pressed(ord("1"))) {
@@ -1089,8 +1102,11 @@ if (mouse_check_button_pressed(mb_left) && !keyboard_check(vk_alt) && !_sel_mod 
         // A held cluster stamps once per click, centred on the ghost cell
         undo_push_snapshot();
         var _pasted = clip_paste(clip_held, ghost_x, ghost_y, ghost_z);
-        tile_msg = "Placed " + string(_pasted) + " tiles";
-        tile_msg_timer = room_speed * 2;
+        tile_msg = "Placed " + string(_pasted.written) + " tiles";
+        if (_pasted.cancelled > 0) {
+            tile_msg += " - " + string(_pasted.cancelled) + " cancelled out a face pointing the other way";
+        }
+        tile_msg_timer = room_speed * 3;
     }
     else {
         paint_active = true;

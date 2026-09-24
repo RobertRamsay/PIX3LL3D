@@ -889,18 +889,101 @@ function clip_item_remove(_index)
     }
 }
 
+/// @desc Index the placed tiles by cell and plane: "x,y,z,plane" -> array of
+/// their keys in global.world_tiles. Two tiles can share a cell when their
+/// decal offsets differ, which is why this is a list rather than one key.
+function world_face_index()
+{
+    var _idx = {};
+    var _names = variable_struct_get_names(global.world_tiles);
+
+    for (var _i = 0; _i < array_length(_names); _i++)
+    {
+        var _t = variable_struct_get(global.world_tiles, _names[_i]);
+        var _cell = string(_t.x) + "," + string(_t.y) + "," + string(_t.z) + "," + _t.plane;
+
+        if (!variable_struct_exists(_idx, _cell))
+        {
+            variable_struct_set(_idx, _cell, []);
+        }
+        array_push(variable_struct_get(_idx, _cell), _names[_i]);
+    }
+
+    return _idx;
+}
+
+/// @desc Cell key for the index above.
+function world_face_cell(_x, _y, _z, _plane)
+{
+    return string(_x) + "," + string(_y) + "," + string(_z) + "," + _plane;
+}
+
+/// @desc Throw away faces that sit in the same place pointing opposite ways.
+/// They can never both be seen, and looking from either side shows one of them,
+/// which is where stray undersides come from. Returns how many went.
+/// The caller pushes the undo snapshot.
+function world_cancel_back_to_back()
+{
+    var _idx = world_face_index();
+    var _cells = variable_struct_get_names(_idx);
+    var _removed = 0;
+
+    for (var _i = 0; _i < array_length(_cells); _i++)
+    {
+        var _keys = variable_struct_get(_idx, _cells[_i]);
+        if (array_length(_keys) < 2)
+        {
+            continue;
+        }
+
+        var _has_front = false;
+        var _has_back = false;
+        for (var _k = 0; _k < array_length(_keys); _k++)
+        {
+            var _t = variable_struct_get(global.world_tiles, _keys[_k]);
+            if (_t.facing >= 0)
+            {
+                _has_front = true;
+            }
+            else
+            {
+                _has_back = true;
+            }
+        }
+
+        if (_has_front && _has_back)
+        {
+            for (var _k = 0; _k < array_length(_keys); _k++)
+            {
+                if (variable_struct_exists(global.world_tiles, _keys[_k]))
+                {
+                    struct_remove(global.world_tiles, _keys[_k]);
+                    _removed += 1;
+                }
+            }
+        }
+    }
+
+    return _removed;
+}
+
 /// @desc Stamp a clip into the world, centred on a cell of the active plane.
-/// The caller pushes the undo snapshot. Returns the number of tiles written.
+/// The caller pushes the undo snapshot.
+/// A face landing where an opposite-facing one already sits cancels it out:
+/// both go, rather than the newcomer quietly replacing it (the tile key is
+/// cell + plane + decal step, so facing alone never kept them apart).
+/// Returns a struct: written, cancelled.
 function clip_paste(_index, _gx, _gy, _gz)
 {
+    var _result = { written: 0, cancelled: 0 };
     if (_index < 0 || _index >= array_length(global.clip_items))
     {
-        return 0;
+        return _result;
     }
 
     var _item = global.clip_items[_index];
     var _anchor_z = clip_world_z(active_plane, _gz);
-    var _written = 0;
+    var _idx = world_face_index();
 
     for (var _i = 0; _i < array_length(_item.tiles); _i++)
     {
@@ -911,6 +994,33 @@ function clip_paste(_index, _gx, _gy, _gz)
         var _zs = clip_store_z(_c.plane, _wz);
 
         var _key = string(_wx) + "," + string(_wy) + "," + string(_zs) + "," + _c.plane + "," + string(_c.koff);
+
+        // Anything already in this cell facing the other way cancels with it
+        var _cell = world_face_cell(_wx, _wy, _zs, _c.plane);
+        var _cancelled_here = false;
+        if (variable_struct_exists(_idx, _cell))
+        {
+            var _there = variable_struct_get(_idx, _cell);
+            for (var _k = 0; _k < array_length(_there); _k++)
+            {
+                if (!variable_struct_exists(global.world_tiles, _there[_k]))
+                {
+                    continue;
+                }
+                var _old = variable_struct_get(global.world_tiles, _there[_k]);
+                if (sign(_old.facing) == -sign(_c.facing))
+                {
+                    struct_remove(global.world_tiles, _there[_k]);
+                    _result.cancelled += 1;
+                    _cancelled_here = true;
+                }
+            }
+        }
+
+        if (_cancelled_here)
+        {
+            continue;
+        }
 
         variable_struct_set(global.world_tiles, _key, {
             x: _wx,
@@ -929,10 +1039,10 @@ function clip_paste(_index, _gx, _gy, _gz)
             off_y: _c.off_y,
             off_z: _c.off_z
         });
-        _written += 1;
+        _result.written += 1;
     }
 
-    return _written;
+    return _result;
 }
 
 /// @desc Draw the held clip as a ghost, centred on a cell of the active plane.
