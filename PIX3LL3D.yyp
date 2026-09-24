@@ -41,7 +41,6 @@
     {"id":{"name":"POSTFX_system","path":"scripts/POSTFX_system/POSTFX_system.yy",},},
     {"id":{"name":"scene_export_obj","path":"scripts/scene_export_obj/scene_export_obj.yy",},},
     {"id":{"name":"scene_save","path":"scripts/scene_save/scene_save.yy",},},
-    {"id":{"name":"TILE_pick","path":"scripts/TILE_pick/TILE_pick.yy",},},
     {"id":{"name":"tileset_import","path":"scripts/tileset_import/tileset_import.yy",},},
     {"id":{"name":"UNDO_system","path":"scripts/UNDO_system/UNDO_system.yy",},},
     {"id":{"name":"WINDOW_system","path":"scripts/WINDOW_system/WINDOW_system.yy",},},

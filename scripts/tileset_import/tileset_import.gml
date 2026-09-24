@@ -1,3 +1,118 @@
+/// @desc Pack the sheet that is active right now into a string a scene file can
+/// carry: raw RGBA, zlib compressed, base64 encoded. The sheet is rebuilt from
+/// the live sprite's frames, so pixel-editor work that was never saved to a PNG
+/// travels with the scene too.
+/// Returns a struct: ok, w, h, cell, cols, data.
+function tileset_sheet_data(_cols_now)
+{
+    var _out = {
+        ok: false,
+        w: 0,
+        h: 0,
+        cell: 0,
+        cols: 0,
+        data: ""
+    };
+
+    var _spr = global.tile_sprite;
+    if (!sprite_exists(_spr))
+    {
+        return _out;
+    }
+
+    var _cell = sprite_get_width(_spr);
+    var _count = sprite_get_number(_spr);
+    if (_cell <= 0 || _count <= 0)
+    {
+        return _out;
+    }
+
+    var _cols = max(1, min(_cols_now, _count));
+    var _rows = ceil(_count / _cols);
+    var _w = _cols * _cell;
+    var _h = _rows * _cell;
+
+    // Rebuild the sheet exactly as tileset_reslice_active does
+    var _surf = surface_create(_w, _h);
+    surface_set_target(_surf);
+    draw_clear_alpha(c_black, 0);
+    gpu_set_blendenable(false);
+    gpu_set_alphatestenable(false);
+    gpu_set_tex_filter(false);
+    var _xo = sprite_get_xoffset(_spr);
+    var _yo = sprite_get_yoffset(_spr);
+    for (var _i = 0; _i < _count; _i++)
+    {
+        draw_sprite(_spr, _i, (_i mod _cols) * _cell + _xo, (_i div _cols) * _cell + _yo);
+    }
+    gpu_set_blendenable(true);
+    gpu_set_alphatestenable(true);
+    surface_reset_target();
+
+    // Raw pixels out, compressed, then base64 so it fits in JSON.
+    // buffer_get_surface here and buffer_set_surface on load use the same
+    // layout, so whatever orientation the surface has is preserved exactly.
+    var _buf = buffer_create(_w * _h * 4, buffer_fixed, 1);
+    buffer_get_surface(_buf, _surf, 0);
+    surface_free(_surf);
+
+    var _cmp = buffer_compress(_buf, 0, buffer_get_size(_buf));
+    buffer_delete(_buf);
+    if (_cmp < 0)
+    {
+        return _out;
+    }
+
+    _out.data = buffer_base64_encode(_cmp, 0, buffer_get_size(_cmp));
+    buffer_delete(_cmp);
+
+    _out.ok = true;
+    _out.w = _w;
+    _out.h = _h;
+    _out.cell = _cell;
+    _out.cols = _cols;
+    return _out;
+}
+
+/// @desc Rebuild a tileset from what tileset_sheet_data packed.
+/// Returns the new sprite index, or -1.
+function tileset_from_data(_w, _h, _cell, _data)
+{
+    if (_data == "" || _w <= 0 || _h <= 0 || _cell <= 0)
+    {
+        return -1;
+    }
+
+    var _cmp = buffer_base64_decode(_data);
+    if (_cmp < 0)
+    {
+        return -1;
+    }
+
+    var _buf = buffer_decompress(_cmp);
+    buffer_delete(_cmp);
+    if (_buf < 0)
+    {
+        show_debug_message("Scene load: embedded tileset would not decompress.");
+        return -1;
+    }
+
+    if (buffer_get_size(_buf) < _w * _h * 4)
+    {
+        show_debug_message("Scene load: embedded tileset is the wrong size.");
+        buffer_delete(_buf);
+        return -1;
+    }
+
+    var _surf = surface_create(_w, _h);
+    buffer_set_surface(_buf, _surf, 0);
+    buffer_delete(_buf);
+
+    var _new = tileset_slice_surface(_surf, _w, _h, _cell);
+    surface_free(_surf);
+    return _new;
+}
+
 #macro TILESET_MAX_TILES 4096   // refuse sheets that would slice into more
 
 /// @desc Build a brand new, empty (fully transparent) sheet _w x _h pixels and
