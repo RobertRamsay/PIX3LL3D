@@ -1,0 +1,26 @@
+diff --git a/objects/obj_editor/Draw_64.gml b/objects/obj_editor/Draw_64.gml
+index ead1439..74b5142 100644
+--- a/objects/obj_editor/Draw_64.gml
++++ b/objects/obj_editor/Draw_64.gml
+@@ -129,6 +129,12 @@ if (palette_open) {
+     draw_rectangle_color(_px1, _py1, _px2, _py2, _top_col, _top_col, _bot_col, _bot_col, false);
+     draw_set_alpha(1);
+ 
++    // Tile art is pixel art: no smoothing, whatever the last draw left on.
++    // (The 3D view turns filtering back on for everything after the tiles, and
++    // a loaded sheet with a smaller cell is scaled up here, which showed it.)
++    var _pal_filter = gpu_get_tex_filter();
++    gpu_set_tex_filter(false);
++
+     for (var _i = 0; _i < _count; _i++) {
+         var _col = _i mod palette_cols;
+         var _row = _i div palette_cols;
+@@ -152,6 +158,8 @@ if (palette_open) {
+         }
+     }
+ 
++    gpu_set_tex_filter(_pal_filter);
++
+     // --- DRAG-SELECT HIGHLIGHT (live rectangle while dragging) ---
+     if (palette_drag_start >= 0) {
+         var _end = (palette_hover >= 0) ? palette_hover : palette_drag_start;

@@ -129,6 +129,12 @@ if (palette_open) {
     draw_rectangle_color(_px1, _py1, _px2, _py2, _top_col, _top_col, _bot_col, _bot_col, false);
     draw_set_alpha(1);
 
+    // Tile art is pixel art: no smoothing, whatever the last draw left on.
+    // (The 3D view turns filtering back on for everything after the tiles, and
+    // a loaded sheet with a smaller cell is scaled up here, which showed it.)
+    var _pal_filter = gpu_get_tex_filter();
+    gpu_set_tex_filter(false);
+
     for (var _i = 0; _i < _count; _i++) {
         var _col = _i mod palette_cols;
         var _row = _i div palette_cols;
@@ -151,6 +157,8 @@ if (palette_open) {
             draw_rectangle(_cell_x, _cell_y, _cell_x + palette_cell, _cell_y + palette_cell, true);
         }
     }
+
+    gpu_set_tex_filter(_pal_filter);
 
     // --- DRAG-SELECT HIGHLIGHT (live rectangle while dragging) ---
     if (palette_drag_start >= 0) {
