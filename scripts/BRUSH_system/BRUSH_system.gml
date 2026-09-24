@@ -1370,24 +1370,73 @@ function clip_recentre(_item)
     }
 }
 
-/// @desc Set a tile's facing from its normal, for whichever plane it is on now.
-function clip_facing_from_normal(_tile)
+/// @desc The world direction a tile is seen from, worked out from the winding
+/// draw_tile_quad_textured builds for this plane at facing >= 0:
+/// XY winds toward +Z, XZ toward +Y, and YZ toward -X. That last one is the
+/// odd one out, which is why "facing" cannot simply be carried across when a
+/// wall changes plane - the same number means opposite sides on XZ and YZ.
+function clip_visible_normal(_plane, _facing)
 {
+    var _s = 1;
+    if (_facing < 0)
+    {
+        _s = -1;
+    }
+
+    if (_plane == "XY")
+    {
+        return [0, 0, _s];
+    }
+    if (_plane == "XZ")
+    {
+        return [0, _s, 0];
+    }
+    return [-_s, 0, 0];
+}
+
+/// @desc The facing value that shows a tile on _plane from direction _v.
+function clip_facing_from_visible(_plane, _v)
+{
+    var _d = 0;
+    if (_plane == "XY")
+    {
+        _d = _v[2];
+    }
+    if (_plane == "XZ")
+    {
+        _d = _v[1];
+    }
+    if (_plane == "YZ")
+    {
+        _d = -_v[0];
+    }
+
+    if (_d < 0)
+    {
+        return -1;
+    }
+    return 1;
+}
+
+/// @desc Keep the stored normal in step with facing (the placement code writes
+/// the two the same way round).
+function clip_normal_from_facing(_tile)
+{
+    _tile.nrm_x = 0;
+    _tile.nrm_y = 0;
+    _tile.nrm_z = 0;
+
     if (_tile.plane == "XY")
     {
-        _tile.facing = _tile.nrm_z;
+        _tile.nrm_z = _tile.facing;
     }
     if (_tile.plane == "XZ")
     {
-        _tile.facing = _tile.nrm_y;
+        _tile.nrm_y = _tile.facing;
     }
     if (_tile.plane == "YZ")
     {
-        _tile.facing = _tile.nrm_x;
-    }
-    if (_tile.facing == 0)
-    {
-        _tile.facing = 1;
+        _tile.nrm_x = _tile.facing;
     }
 }
 
@@ -1404,6 +1453,10 @@ function clip_turn(_index)
     {
         var _t = _item.tiles[_i];
 
+        // The side this tile is seen from, turned as a direction
+        var _v = clip_visible_normal(_t.plane, _t.facing);
+        var _seen = [_v[1], -_v[0], _v[2]];
+
         // Cell: (x, y) -> (y, -x - 1), and -x for a YZ wall, whose x is a
         // plane position rather than a one-cell span.
         var _ox = _t.dx;
@@ -1418,13 +1471,7 @@ function clip_turn(_index)
             _t.dy = -_ox - 1;
         }
 
-        // Normal turns as a direction
-        var _nx = _t.nrm_x;
-        var _ny = _t.nrm_y;
-        _t.nrm_x = _ny;
-        _t.nrm_y = -_nx;
-
-        // So does the decal offset
+        // The decal offset turns as a direction too
         var _fx2 = _t.off_x;
         var _fy2 = _t.off_y;
         _t.off_x = _fy2;
@@ -1436,7 +1483,8 @@ function clip_turn(_index)
         _t.flip_x = _o.fx;
         _t.flip_y = _o.fy;
 
-        clip_facing_from_normal(_t);
+        _t.facing = clip_facing_from_visible(_t.plane, _seen);
+        clip_normal_from_facing(_t);
     }
 
     clip_recentre(_item);
@@ -1456,6 +1504,9 @@ function clip_mirror(_index)
     {
         var _t = _item.tiles[_i];
 
+        var _v = clip_visible_normal(_t.plane, _t.facing);
+        var _seen = [-_v[0], _v[1], _v[2]];
+
         if (_t.plane == "YZ")
         {
             _t.dx = -_t.dx;
@@ -1465,7 +1516,6 @@ function clip_mirror(_index)
             _t.dx = -_t.dx - 1;
         }
 
-        _t.nrm_x = -_t.nrm_x;
         _t.off_x = -_t.off_x;
 
         var _o = clip_orient_mirror(_t.plane, _t.rot, _t.flip_x, _t.flip_y);
@@ -1474,7 +1524,8 @@ function clip_mirror(_index)
         _t.flip_x = _o.fx;
         _t.flip_y = _o.fy;
 
-        clip_facing_from_normal(_t);
+        _t.facing = clip_facing_from_visible(_t.plane, _seen);
+        clip_normal_from_facing(_t);
     }
 
     clip_recentre(_item);

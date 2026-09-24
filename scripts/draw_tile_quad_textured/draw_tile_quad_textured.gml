@@ -2,8 +2,8 @@
 /// and how far every quad is grown on each side to close the joins.
 /// Raise the bleed if you still see hairlines; lower it if tiles look like
 /// they creep over their neighbours. Both are in world units, 1 = one tile.
-#macro TILE_Z_BIAS 0.01
-#macro TILE_EDGE_BLEED 0.015
+#macro TILE_Z_BIAS 0.001
+#macro TILE_EDGE_BLEED 0.001
 
 function draw_tile_quad_textured(_x, _y, _z, _plane, _color, _sub, _alpha = 1, _rot = 0, _facing = 1, _ox = 0, _oy = 0, _oz = 0, _flip_x = false, _flip_y = false) {
     // Clamp sub to the active tileset's frame range
