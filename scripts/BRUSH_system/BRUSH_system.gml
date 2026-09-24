@@ -1570,3 +1570,181 @@ function clip_mirror_on_screen(_index)
         clip_mirror_y(_index);
     }
 }
+
+// ============================================================
+//  WIREFRAME OVERLAY (F)
+// ============================================================
+// Outlines every placed tile, drawn through the scene so nothing can hide:
+//   cyan    - an ordinary tile
+//   orange  - a tile whose back is toward you (culled when culling is on)
+//   magenta - a tile whose graphic is completely transparent, crossed through.
+//             These are invisible in the normal view but are still real tiles:
+//             they get selected, copied, and pasted over things like any other.
+
+/// @desc Work out which frames of the active tileset are completely
+/// transparent. Cached; only redone when the tileset sprite changes.
+/// Call in the Step event (it draws into a surface).
+function wire_refresh_empty()
+{
+    var _spr = global.tile_sprite;
+    if (!sprite_exists(_spr))
+    {
+        wire_empty = [];
+        wire_empty_spr = -1;
+        wire_empty_count = -1;
+        return;
+    }
+
+    var _n = sprite_get_number(_spr);
+    if (_spr == wire_empty_spr && _n == wire_empty_count)
+    {
+        return;
+    }
+
+    var _w = sprite_get_width(_spr);
+    var _h = sprite_get_height(_spr);
+    var _size = _w * _h * 4;
+    var _surf = surface_create(_w, _h);
+    var _buf = buffer_create(_size, buffer_fixed, 1);
+    var _xo = sprite_get_xoffset(_spr);
+    var _yo = sprite_get_yoffset(_spr);
+
+    wire_empty = array_create(_n, false);
+
+    for (var _i = 0; _i < _n; _i++)
+    {
+        // Copy the frame's pixels exactly, alpha and all
+        surface_set_target(_surf);
+        draw_clear_alpha(c_black, 0);
+        gpu_set_blendenable(false);
+        gpu_set_alphatestenable(false);
+        draw_sprite(_spr, _i, _xo, _yo);
+        gpu_set_blendenable(true);
+        gpu_set_alphatestenable(true);
+        surface_reset_target();
+
+        buffer_get_surface(_buf, _surf, 0);
+
+        // Empty means not one pixel with any alpha (which way up the surface
+        // came out doesn't matter for that)
+        var _any = false;
+        for (var _p = 3; _p < _size; _p += 4)
+        {
+            if (buffer_peek(_buf, _p, buffer_u8) > 0)
+            {
+                _any = true;
+                break;
+            }
+        }
+        wire_empty[_i] = !_any;
+    }
+
+    buffer_delete(_buf);
+    surface_free(_surf);
+
+    wire_empty_spr = _spr;
+    wire_empty_count = _n;
+}
+
+/// @desc True when this tile's graphic is completely transparent.
+function wire_tile_is_empty(_t)
+{
+    var _s = _t.sub;
+    if (_s < 0 || _s >= array_length(wire_empty))
+    {
+        return false;
+    }
+    return wire_empty[_s];
+}
+
+/// @desc One line into the open vertex buffer.
+function wire_edge(_a, _b, _col)
+{
+    vertex_position_3d(global.v_buffer, _a[0], _a[1], _a[2]);
+    vertex_color(global.v_buffer, _col, 1);
+    vertex_position_3d(global.v_buffer, _b[0], _b[1], _b[2]);
+    vertex_color(global.v_buffer, _col, 1);
+}
+
+/// @desc Draw the overlay. Call from the Draw event, inside the 3D camera,
+/// after the tiles. Also counts the invisible tiles for the legend.
+function wire_draw()
+{
+    wire_invisible = 0;
+    wire_backfacing = 0;
+
+    var _names = variable_struct_get_names(global.world_tiles);
+    var _n = array_length(_names);
+    if (_n == 0)
+    {
+        return;
+    }
+
+    var _b = clip_cam_basis();
+    var _col_ok = make_colour_rgb(80, 220, 255);
+    var _col_back = make_colour_rgb(255, 150, 40);
+    var _col_empty = make_colour_rgb(255, 40, 220);
+
+    gpu_set_ztestenable(false);
+    gpu_set_cullmode(cull_noculling);
+
+    vertex_begin(global.v_buffer, global.v_format);
+    for (var _i = 0; _i < _n; _i++)
+    {
+        var _t = variable_struct_get(global.world_tiles, _names[_i]);
+        var _c = clip_tile_corners(_t);   // TL, TR, BL, BR
+        var _empty = wire_tile_is_empty(_t);
+
+        var _col = _col_ok;
+        if (_empty)
+        {
+            _col = _col_empty;
+            wire_invisible += 1;
+        }
+        else if (!tile_faces_point(_t, _b.px, _b.py, _b.pz))
+        {
+            _col = _col_back;
+            wire_backfacing += 1;
+        }
+
+        wire_edge(_c[0], _c[1], _col);
+        wire_edge(_c[1], _c[3], _col);
+        wire_edge(_c[3], _c[2], _col);
+        wire_edge(_c[2], _c[0], _col);
+
+        // Cross the invisible ones through so they can't be missed
+        if (_empty)
+        {
+            wire_edge(_c[0], _c[3], _col);
+            wire_edge(_c[1], _c[2], _col);
+        }
+    }
+    vertex_end(global.v_buffer);
+    vertex_submit(global.v_buffer, pr_linelist, -1);
+
+    gpu_set_ztestenable(true);
+}
+
+/// @desc Legend in the bottom-left corner. Call from Draw GUI.
+function wire_legend_draw()
+{
+    var _x = 16;
+    var _y = display_get_gui_height() - 78;
+
+    draw_set_font(-1);
+    draw_set_halign(fa_left);
+    draw_set_valign(fa_top);
+
+    draw_set_alpha(0.75);
+    draw_set_colour(make_colour_rgb(20, 22, 30));
+    draw_rectangle(_x - 8, _y - 8, _x + 420, _y + 66, false);
+    draw_set_alpha(1);
+
+    draw_set_colour(make_colour_rgb(80, 220, 255));
+    draw_text(_x, _y, "WIREFRAME (F)   cyan: tile");
+    draw_set_colour(make_colour_rgb(255, 150, 40));
+    draw_text(_x, _y + 18, "orange: back toward you   (" + string(wire_backfacing) + ")");
+    draw_set_colour(make_colour_rgb(255, 40, 220));
+    draw_text(_x, _y + 36, "magenta, crossed: empty graphic - invisible   (" + string(wire_invisible) + ")");
+    draw_set_colour(c_white);
+}

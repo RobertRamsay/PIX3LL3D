@@ -443,6 +443,14 @@ if (keyboard_check_pressed(ord("B")) || menu_action == "cull") {
     cull_on = !cull_on;
 }
 
+// --- WIREFRAME OVERLAY (F) ---
+if ((keyboard_check_pressed(ord("F")) && !keyboard_check(vk_control)) || menu_action == "wireframe") {
+    wire_on = !wire_on;
+}
+if (wire_on) {
+    wire_refresh_empty(); // cheap unless the tileset changed
+}
+
 // --- GRID TOGGLE ---
 if (keyboard_check_pressed(ord("G")) || menu_action == "grid") {
     grid_visible = !grid_visible;

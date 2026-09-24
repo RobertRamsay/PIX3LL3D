@@ -223,6 +223,11 @@ if (sel_dragging) {
 // --- CLIP STRIP (clusters copied with Ctrl+C) ---
 clip_strip_draw();
 
+// --- WIREFRAME LEGEND ---
+if (wire_on) {
+    wire_legend_draw();
+}
+
 // --- TILESET STATUS (re-slice confirmation) ---
 tileset_msg_draw();
 

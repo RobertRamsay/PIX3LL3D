@@ -155,6 +155,14 @@ global.tile_cell_pref = 0;
 tile_msg = "";
 sheet_new_pending = "";     // size action awaiting a second pick (unsaved edits)
 
+// --- WIREFRAME OVERLAY (F; see BRUSH_system) ---
+wire_on = false;
+wire_empty = [];          // per frame of the active tileset: true = fully transparent
+wire_empty_spr = -1;      // tileset sprite wire_empty was worked out for
+wire_empty_count = -1;    // its frame count at the time
+wire_invisible = 0;       // placed tiles using an empty frame (legend)
+wire_backfacing = 0;      // placed tiles showing their back (legend)
+
 // --- CLUSTER SELECT / CLIP HISTORY (Ctrl+Shift drag, Ctrl+C; see BRUSH_system) ---
 global.clip_items = [];   // clips, newest first: tiles + thumbnail
 sel_keys = [];            // keys of the tiles currently selected
@@ -344,6 +352,7 @@ menu_defs = [
             { label: "Grid",             key: "G",    act: "grid",       mode: "3d" },
             { label: "Tile texture filter", key: "T", act: "tex_filter", mode: "3d" },
             { label: "Backface culling", key: "B",    act: "cull",       mode: "3d" },
+            { label: "Wireframe",        key: "F",    act: "wireframe",  mode: "3d" },
             { label: "Fit sheet",        key: "Home",   act: "pe_fit",        mode: "pe" },
             { label: "Zoom in",          key: "=",      act: "pe_zoom_in",    mode: "pe" },
             { label: "Zoom out",         key: "-",      act: "pe_zoom_out",   mode: "pe" },

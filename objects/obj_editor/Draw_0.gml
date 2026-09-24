@@ -131,5 +131,10 @@ if (!mouse_check_button(mb_right) && !mouse_check_button(mb_middle) && !palette_
     }
 }
 
+// --- 5. WIREFRAME OVERLAY (through everything, so invisible tiles show) ---
+if (wire_on) {
+    wire_draw();
+}
+
 // Back to smooth for anything drawn after the tiles
 gpu_set_tex_filter(true);
