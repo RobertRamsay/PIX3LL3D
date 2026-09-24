@@ -14,7 +14,7 @@
 /// should stop. That keeps the gate in one place per feature rather than
 /// scattered through the menus, the toolbar and the keyboard handlers.
 
-#macro DEMO_MODE false
+#macro DEMO_MODE true
 
 #macro DEMO_PANEL_W 560
 #macro DEMO_PANEL_H 330
