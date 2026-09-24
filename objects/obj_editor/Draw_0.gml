@@ -88,7 +88,7 @@ if (array_length(sel_keys) > 0) {
 
 // --- 4. DRAW GHOST TILE (always visible, never culled; hidden while orbiting) ---
 gpu_set_cullmode(cull_noculling);
-if (!mouse_check_button(mb_right) && !mouse_check_button(mb_middle) && !palette_open && !menu_blocks_mouse) {
+if (!mouse_check_button(mb_right) && !mouse_check_button(mb_middle) && !palette_open && !menu_blocks_mouse && !clip_capture_pending) {
     // A held cluster replaces the single-tile ghost
     if (clip_held >= 0) {
         clip_ghost_draw(clip_held, ghost_x, ghost_y, ghost_z);

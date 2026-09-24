@@ -166,6 +166,11 @@ sel_y1 = 0;
 clip_held = -1;           // index of the clip in hand (-1 = none)
 clip_hover = -1;          // index under the mouse in the strip (-1 = none)
 clip_blocks_mouse = false; // the strip owns the mouse this frame
+clip_capture_pending = false; // a thumbnail grab is waiting for a clean frame
+clip_capture_wait = 0;        // frames left to wait before grabbing
+clip_capture_keys = [];       // tiles the pending grab will take
+clip_capture_rect = [0, 0, 0, 0]; // drag rectangle the thumbnail comes from
+clip_capture_grid = false;    // was the grid on before the capture
 
 // --- PAINT / ERASE STROKES (hold the mouse button and move) ---
 paint_active = false;    // left button held after a valid press
