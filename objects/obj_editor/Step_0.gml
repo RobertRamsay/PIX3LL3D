@@ -1264,9 +1264,23 @@ if (erase_active && _place_key != erase_last_key) {
     erase_last_key = _place_key;
     _erase_now = true;
 }
+// Delete / Backspace take out the single tile the cursor is pointing at - the
+// first one the ray meets, the same tile Alt+click would pick - rather than a
+// whole brush footprint at the ghost cell.
 if (keyboard_check_pressed(vk_delete) || keyboard_check_pressed(vk_backspace)) {
-    undo_push_snapshot();
-    _erase_now = true;
+    if (!palette_open && !menu_blocks_mouse && !clip_blocks_mouse) {
+        var _del = tile_raycast_nearest(_cx, _cy, _cz, _ray_x, _ray_y, _ray_z);
+        if (_del.found) {
+            undo_push_snapshot();
+            struct_remove(global.world_tiles, _del.key);
+            tile_msg = "Tile removed";
+            tile_msg_timer = room_speed * 2;
+        }
+        else {
+            tile_msg = "No tile under the cursor";
+            tile_msg_timer = room_speed * 2;
+        }
+    }
 }
 
 if (_erase_now) {
