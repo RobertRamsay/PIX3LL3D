@@ -162,6 +162,9 @@ wire_empty_spr = -1;      // tileset sprite wire_empty was worked out for
 wire_empty_count = -1;    // its frame count at the time
 wire_invisible = 0;       // placed tiles using an empty frame (legend)
 wire_backfacing = 0;      // placed tiles showing their back (legend)
+invisible_count = 0;      // placed tiles with a fully transparent graphic
+invisible_recount = 0;    // steps until that count is refreshed
+invisible_btn_hover = false; // mouse over the warning's Clean up button
 
 // --- CLUSTER SELECT / CLIP HISTORY (Ctrl+Shift drag, Ctrl+C; see BRUSH_system) ---
 global.clip_items = [];   // clips, newest first: tiles + thumbnail
@@ -339,7 +342,8 @@ menu_defs = [
             { label: "Flip brush H",        key: "X",      act: "flip_x", mode: "3d" },
             { label: "Flip brush V",        key: "Y",      act: "flip_y", mode: "3d" },
             { label: "-",                   key: "",       act: "",       mode: "3d" },
-            { label: "Remove duplicate / back-to-back faces", key: "", act: "clean_faces", mode: "3d" }
+            { label: "Remove duplicate / back-to-back faces", key: "", act: "clean_faces", mode: "3d" },
+            { label: "Remove invisible tiles", key: "", act: "clean_invisible", mode: "3d" }
         ]
     },
     {

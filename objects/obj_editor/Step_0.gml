@@ -206,6 +206,9 @@ postfx_update();
 // Clip strip down the left edge (claims the mouse over its cells)
 clip_strip_update();
 
+// Invisible-tile warning bar and its Clean up button (claims the mouse too)
+invisible_warn_update();
+
 if ((keyboard_check_pressed(ord("P")) && !keyboard_check(vk_control)) || menu_action == "pe_toggle")
 {
     pe_open_editor();
@@ -447,9 +450,9 @@ if (keyboard_check_pressed(ord("B")) || menu_action == "cull") {
 if ((keyboard_check_pressed(ord("F")) && !keyboard_check(vk_control)) || menu_action == "wireframe") {
     wire_on = !wire_on;
 }
-if (wire_on) {
-    wire_refresh_empty(); // cheap unless the tileset changed
-}
+// Which frames are fully transparent: the wireframe, the placement guard
+// and the invisible-tile warning all read this. Cheap unless the tileset changed.
+wire_refresh_empty();
 
 // --- GRID TOGGLE ---
 if (keyboard_check_pressed(ord("G")) || menu_action == "grid") {
@@ -619,6 +622,18 @@ if ((_ctrl && keyboard_check_pressed(ord("Y"))) || menu_action == "redo") {
 }
 
 // Sweep the whole scene for faces sitting back to back
+if (menu_action == "clean_invisible") {
+    undo_push_snapshot();
+    var _gone = world_remove_invisible();
+    if (_gone > 0) {
+        tile_msg = "Removed " + string(_gone) + " invisible tiles";
+    }
+    else {
+        tile_msg = "No invisible tiles in the scene";
+    }
+    tile_msg_timer = room_speed * 3;
+}
+
 if (menu_action == "clean_faces") {
     undo_push_snapshot();
     var _cleaned = world_rekey();
@@ -1139,6 +1154,9 @@ if (mouse_check_button_pressed(mb_left) && !keyboard_check(vk_alt) && !_sel_mod 
         undo_push_snapshot();
         var _pasted = clip_paste(clip_held, ghost_x, ghost_y, ghost_z);
         tile_msg = "Placed " + string(_pasted.written) + " tiles";
+        if (_pasted.skipped > 0) {
+            tile_msg += " - left out " + string(_pasted.skipped) + " with no graphic";
+        }
         if (_pasted.cancelled > 0) {
             tile_msg += " - " + string(_pasted.cancelled) + " cancelled out a face pointing the other way";
         }
@@ -1161,6 +1179,8 @@ if (paint_active && (palette_open || menu_blocks_mouse || clip_blocks_mouse || k
 
 if (paint_active && _place_key != paint_last_key) {
     paint_last_key = _place_key;
+
+    var _stamp_skipped = 0;
 
     var _facing = 1;
     if (active_plane == "XY") {
@@ -1203,6 +1223,12 @@ if (paint_active && _place_key != paint_last_key) {
             var _src_c = _rev_c ? (brush_cols - 1 - _bc) : _bc;
             var _src_r = _rev_r ? (brush_rows - 1 - _br) : _br;
             var _sub_here = brush_subs[_src_r * brush_cols + _src_c];
+
+            // Never lay down a tile with no graphic (fully transparent frame)
+            if (tile_frame_is_empty(_sub_here)) {
+                _stamp_skipped += 1;
+                continue;
+            }
 
             var _tx = ghost_x;
             var _ty = ghost_y;
@@ -1249,6 +1275,11 @@ if (paint_active && _place_key != paint_last_key) {
                 off_z: ghost_off_z
             });
         }
+    }
+
+    if (_stamp_skipped > 0) {
+        tile_msg = "That tile is empty (fully transparent) - pick one with a graphic";
+        tile_msg_timer = room_speed * 2;
     }
 }
 

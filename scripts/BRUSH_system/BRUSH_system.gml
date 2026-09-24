@@ -1002,7 +1002,7 @@ function clip_item_remove(_index)
 /// Returns a struct: written, cancelled.
 function clip_paste(_index, _gx, _gy, _gz)
 {
-    var _result = { written: 0, cancelled: 0 };
+    var _result = { written: 0, cancelled: 0, skipped: 0 };
     if (_index < 0 || _index >= array_length(global.clip_items))
     {
         return _result;
@@ -1014,6 +1014,14 @@ function clip_paste(_index, _gx, _gy, _gz)
     for (var _i = 0; _i < array_length(_item.tiles); _i++)
     {
         var _c = _item.tiles[_i];
+
+        // Never lay down a tile with no graphic
+        if (tile_frame_is_empty(_c.sub))
+        {
+            _result.skipped += 1;
+            continue;
+        }
+
         var _wx = _gx + _c.dx;
         var _wy = _gy + _c.dy;
         var _wz = _anchor_z + _c.dz;
@@ -1747,4 +1755,177 @@ function wire_legend_draw()
     draw_set_colour(make_colour_rgb(255, 40, 220));
     draw_text(_x, _y + 36, "magenta, crossed: empty graphic - invisible   (" + string(wire_invisible) + ")");
     draw_set_colour(c_white);
+}
+
+// ============================================================
+//  EMPTY-GRAPHIC TILES: GUARD, WARNING AND CLEAN-UP
+// ============================================================
+// A tile whose frame is fully transparent (0,0,0,0 everywhere) can't be seen,
+// but it is still a real tile: it gets selected, copied, and pasted over
+// visible ones. So such tiles are never placed or pasted, any already in the
+// scene are counted and flagged, and one click removes them.
+// Uses the same per-frame table as the wireframe (wire_refresh_empty).
+
+/// @desc True when frame _sub of the active tileset is completely transparent.
+function tile_frame_is_empty(_sub)
+{
+    if (_sub < 0 || _sub >= array_length(wire_empty))
+    {
+        return false;
+    }
+    return wire_empty[_sub];
+}
+
+/// @desc How many placed tiles use an empty frame right now.
+function world_count_invisible()
+{
+    var _names = variable_struct_get_names(global.world_tiles);
+    var _count = 0;
+    for (var _i = 0; _i < array_length(_names); _i++)
+    {
+        var _t = variable_struct_get(global.world_tiles, _names[_i]);
+        if (tile_frame_is_empty(_t.sub))
+        {
+            _count += 1;
+        }
+    }
+    return _count;
+}
+
+/// @desc Remove every placed tile that uses an empty frame. The caller pushes
+/// the undo snapshot. Returns how many went.
+function world_remove_invisible()
+{
+    wire_refresh_empty();
+
+    var _names = variable_struct_get_names(global.world_tiles);
+    var _removed = 0;
+    for (var _i = 0; _i < array_length(_names); _i++)
+    {
+        var _t = variable_struct_get(global.world_tiles, _names[_i]);
+        if (tile_frame_is_empty(_t.sub))
+        {
+            struct_remove(global.world_tiles, _names[_i]);
+            _removed += 1;
+        }
+    }
+
+    invisible_count = 0;
+    invisible_recount = 0;
+    return _removed;
+}
+
+/// @desc Geometry of the warning bar (GUI pixels), bottom centre.
+function invisible_warn_rect()
+{
+    draw_set_font(-1);
+    var _msg = invisible_warn_text();
+    var _btn_w = string_width("Clean up") + 28;
+    var _w = string_width(_msg) + 24 + _btn_w + 16;
+    var _h = 34;
+    var _x = floor((display_get_gui_width() - _w) * 0.5);
+    var _y = display_get_gui_height() - 70;
+    return {
+        x: _x,
+        y: _y,
+        w: _w,
+        h: _h,
+        bx: _x + _w - _btn_w - 8,
+        by: _y + 5,
+        bw: _btn_w,
+        bh: _h - 10
+    };
+}
+
+/// @desc The warning line itself.
+function invisible_warn_text()
+{
+    var _noun = " tiles have";
+    if (invisible_count == 1)
+    {
+        _noun = " tile has";
+    }
+    return string(invisible_count) + _noun + " no graphic (fully transparent) - they can't be seen but can overwrite others.  F shows them.";
+}
+
+/// @desc Keep the count fresh and handle the Clean up button. Call in the
+/// Step event after clip_strip_update(); it claims the mouse through
+/// clip_blocks_mouse while over the bar, so the click never reaches the scene.
+function invisible_warn_update()
+{
+    // Recount a few times a second, not every frame
+    invisible_recount -= 1;
+    if (invisible_recount <= 0)
+    {
+        invisible_count = world_count_invisible();
+        invisible_recount = 20;
+    }
+
+    invisible_btn_hover = false;
+    if (invisible_count <= 0)
+    {
+        return;
+    }
+
+    var _r = invisible_warn_rect();
+    var _mx = device_mouse_x_to_gui(0);
+    var _my = device_mouse_y_to_gui(0);
+
+    if (_mx >= _r.x && _mx <= _r.x + _r.w && _my >= _r.y && _my <= _r.y + _r.h)
+    {
+        clip_blocks_mouse = true; // the bar owns the mouse, same as the clip strip
+    }
+
+    if (_mx >= _r.bx && _mx <= _r.bx + _r.bw && _my >= _r.by && _my <= _r.by + _r.bh)
+    {
+        invisible_btn_hover = true;
+        if (mouse_check_button_pressed(mb_left))
+        {
+            undo_push_snapshot();
+            var _gone = world_remove_invisible();
+            tile_msg = "Removed " + string(_gone) + " invisible tiles";
+            tile_msg_timer = room_speed * 3;
+        }
+    }
+}
+
+/// @desc Draw the warning bar. Call from Draw GUI.
+function invisible_warn_draw()
+{
+    if (invisible_count <= 0)
+    {
+        return;
+    }
+
+    var _r = invisible_warn_rect();
+
+    draw_set_font(-1);
+    draw_set_valign(fa_middle);
+
+    draw_set_alpha(0.9);
+    draw_set_colour(make_colour_rgb(60, 16, 56));
+    draw_rectangle(_r.x, _r.y, _r.x + _r.w, _r.y + _r.h, false);
+    draw_set_alpha(1);
+    draw_set_colour(make_colour_rgb(255, 40, 220));
+    draw_rectangle(_r.x, _r.y, _r.x + _r.w, _r.y + _r.h, true);
+
+    draw_set_halign(fa_left);
+    draw_set_colour(c_white);
+    draw_text(_r.x + 12, _r.y + _r.h * 0.5, invisible_warn_text());
+
+    // Clean up button
+    var _fill = make_colour_rgb(150, 30, 130);
+    if (invisible_btn_hover)
+    {
+        _fill = make_colour_rgb(210, 50, 185);
+    }
+    draw_set_colour(_fill);
+    draw_rectangle(_r.bx, _r.by, _r.bx + _r.bw, _r.by + _r.bh, false);
+    draw_set_colour(c_white);
+    draw_rectangle(_r.bx, _r.by, _r.bx + _r.bw, _r.by + _r.bh, true);
+    draw_set_halign(fa_center);
+    draw_text(_r.bx + _r.bw * 0.5, _r.by + _r.bh * 0.5, "Clean up");
+
+    draw_set_halign(fa_left);
+    draw_set_valign(fa_top);
 }
