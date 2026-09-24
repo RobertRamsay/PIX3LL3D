@@ -151,6 +151,7 @@ global.tile_cell = sprite_get_width(spr_tile);
 global.tile_cell_pref = 0;
 // Short-lived confirmation line, so a re-slice is never silent
 tile_msg = "";
+sheet_new_pending = "";     // size action awaiting a second pick (unsaved edits)
 tile_msg_timer = 0;
 global.tile_is_custom = false;     // true when the active set is the custom one
 
@@ -347,6 +348,12 @@ menu_defs = [
         items: [
             { label: "Import PNG...",     key: "Ctrl+I", act: "tiles_import",  mode: "3d" },
             { label: "-",                 key: "",       act: "",              mode: "3d" },
+            { label: "New sheet 64 x 64",     key: "", act: "sheet_new_64",       mode: "all" },
+            { label: "New sheet 128 x 128",   key: "", act: "sheet_new_128",      mode: "all" },
+            { label: "New sheet 256 x 256",   key: "", act: "sheet_new_256",      mode: "all" },
+            { label: "New sheet 512 x 512",   key: "", act: "sheet_new_512",      mode: "all" },
+            { label: "New sheet 1024 x 512",  key: "", act: "sheet_new_1024x512", mode: "all" },
+            { label: "-",                 key: "",       act: "",              mode: "all" },
             { label: "Built-in tileset",  key: "F1",     act: "tiles_builtin", mode: "3d" },
             { label: "Custom tileset",    key: "F2",     act: "tiles_custom",  mode: "3d" },
             { label: "-",                 key: "",       act: "",              mode: "3d" },

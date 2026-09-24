@@ -1,3 +1,48 @@
+#macro TILESET_MAX_TILES 4096   // refuse sheets that would slice into more
+
+/// @desc Build a brand new, empty (fully transparent) sheet _w x _h pixels and
+/// slice it at _cell. _cell of 0 keeps the cell size in use now.
+/// Returns the new sprite index, -1 when the cell size does not divide the
+/// sheet, or -2 when the sheet would hold more than TILESET_MAX_TILES tiles.
+function tileset_new_blank(_w, _h, _cell)
+{
+    var _use_cell = _cell;
+    if (_use_cell <= 0)
+    {
+        _use_cell = global.tile_cell;
+    }
+    if (_use_cell <= 0)
+    {
+        _use_cell = 16;
+    }
+
+    if ((_w mod _use_cell) != 0 || (_h mod _use_cell) != 0)
+    {
+        return -1;
+    }
+
+    var _cols = _w div _use_cell;
+    var _rows = _h div _use_cell;
+    if (_cols * _rows > TILESET_MAX_TILES)
+    {
+        return -2;
+    }
+
+    var _surf = surface_create(_w, _h);
+    surface_set_target(_surf);
+    draw_clear_alpha(c_black, 0);
+    surface_reset_target();
+
+    var _new = tileset_slice_surface(_surf, _w, _h, _use_cell);
+    surface_free(_surf);
+
+    if (_new >= 0)
+    {
+        show_debug_message("New tileset: " + string(_cols * _rows) + " empty tiles at " + string(_use_cell) + "px (" + string(_w) + "x" + string(_h) + ")");
+    }
+    return _new;
+}
+
 /// @desc Pick a cell size for a sheet of this pixel size.
 /// 16 is tried first so every sheet that worked before keeps working; then
 /// the larger sizes, then 8. A square sheet often divides by several of

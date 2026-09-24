@@ -102,6 +102,94 @@ if (menu_action == "cell_reimport")
     }
 }
 
+// --- NEW EMPTY TILESET SHEET (works from either editor) ---
+var _new_w = 0;
+var _new_h = 0;
+if (menu_action == "sheet_new_64")
+{
+    _new_w = 64;
+    _new_h = 64;
+}
+if (menu_action == "sheet_new_128")
+{
+    _new_w = 128;
+    _new_h = 128;
+}
+if (menu_action == "sheet_new_256")
+{
+    _new_w = 256;
+    _new_h = 256;
+}
+if (menu_action == "sheet_new_512")
+{
+    _new_w = 512;
+    _new_h = 512;
+}
+if (menu_action == "sheet_new_1024x512")
+{
+    _new_w = 1024;
+    _new_h = 512;
+}
+
+if (_new_w > 0)
+{
+    // Unsaved pixel work would go with the old sheet: the same size has to be
+    // picked twice to go ahead, so nothing is lost by one stray click.
+    if (pe_png_dirty && sheet_new_pending != menu_action)
+    {
+        sheet_new_pending = menu_action;
+        tile_msg = "Texture edits are not saved - pick that size again to start anyway";
+        tile_msg_timer = room_speed * 5;
+    }
+    else
+    {
+        sheet_new_pending = "";
+
+        var _blank = tileset_new_blank(_new_w, _new_h, global.tile_cell_pref);
+        if (_blank == -2)
+        {
+            tile_msg = "That sheet would hold over " + string(TILESET_MAX_TILES) + " tiles - use a bigger cell size";
+            tile_msg_timer = room_speed * 4;
+        }
+        else if (_blank < 0)
+        {
+            tile_msg = "Cell size does not divide " + string(_new_w) + "x" + string(_new_h) + " - pick another in Tileset > Cell size";
+            tile_msg_timer = room_speed * 4;
+        }
+        else
+        {
+            var _old_sheet = global.tile_custom;
+            global.tile_custom = _blank;
+            global.tile_sprite = _blank;
+            global.tile_is_custom = true;
+            global.tile_custom_path = ""; // nothing on disk yet; Ctrl+S will ask
+
+            palette_cols = max(1, global.tile_custom_cols);
+            active_sub = 0;
+            brush_subs = [0];
+            brush_cols = 1;
+            brush_rows = 1;
+            brush_rot = 0;
+            ghost_rot = 0;
+            ghost_flip_x = FLIP_X_DEFAULT;
+            ghost_flip_y = FLIP_Y_DEFAULT;
+
+            if (_old_sheet >= 0 && sprite_exists(_old_sheet) && _old_sheet != _blank)
+            {
+                sprite_delete(_old_sheet);
+            }
+
+            pe_png_dirty = false;
+
+            tile_msg = "New " + string(_new_w) + "x" + string(_new_h) + " sheet - " + string(sprite_get_number(_blank)) + " empty tiles at " + string(global.tile_cell) + "px";
+            tile_msg_timer = room_speed * 4;
+
+            // Open the pixel editor on it (or reload it if already open)
+            pe_open_editor();
+        }
+    }
+}
+
 // --- PIXEL EDITOR (takes over all input while open) ---
 if (pe_open)
 {
@@ -733,108 +821,53 @@ if (keyboard_check_released(vk_shift)) {
 }
 
 if (_shift_tap) {
-    var _match_found = false;
-    var _match_edge = false;
-    var _match_t = 0;
-    var _match_depth = 0;
-    var _match_names = variable_struct_get_names(global.world_tiles);
-    // Hit point in the tile's own space (its decal offset taken back out)
-    var _hx = 0;
-    var _hy = 0;
-    var _hz = 0;
+    var _hit = tile_raycast_nearest(_cx, _cy, _cz, _ray_x, _ray_y, _ray_z);
 
-    for (var _mi = 0; _mi < array_length(_match_names); _mi++) {
-        var _mt = variable_struct_get(global.world_tiles, _match_names[_mi]);
+    if (_hit.found) {
+        var _mt = _hit.tile;
+        var _match_depth = 0;
+        var _match_edge = false;
 
-        // Test the ray against the tile's OWN plane, whatever is active
-        var _hit_ok = false;
-        var _tt = 0;
-        if (_mt.plane == "XY") {
-            // Drawn at world Z = -z, plus its decal offset
-            if (abs(_ray_z) > 0.0001) {
-                _tt = (-_mt.z + _mt.off_z - _cz) / _ray_z;
-                _hx = _cx + _ray_x * _tt - _mt.off_x;
-                _hy = _cy + _ray_y * _tt - _mt.off_y;
-                _hz = -_mt.z;
-                if (_hx >= _mt.x && _hx < _mt.x + 1 && _hy >= _mt.y && _hy < _mt.y + 1) {
-                    _hit_ok = true;
-                }
+        if (_mt.plane == active_plane) {
+            // Same plane: a tile's depth is its coordinate on the normal axis
+            if (active_plane == "XY") {
+                _match_depth = _mt.z;
+            }
+            if (active_plane == "XZ") {
+                _match_depth = _mt.y;
+            }
+            if (active_plane == "YZ") {
+                _match_depth = _mt.x;
             }
         }
-        if (_mt.plane == "XZ") {
-            if (abs(_ray_y) > 0.0001) {
-                _tt = (_mt.y + _mt.off_y - _cy) / _ray_y;
-                _hx = _cx + _ray_x * _tt - _mt.off_x;
-                _hy = _mt.y;
-                _hz = _cz + _ray_z * _tt - _mt.off_z;
-                if (_hx >= _mt.x && _hx < _mt.x + 1 && _hz >= _mt.z && _hz < _mt.z + 1) {
-                    _hit_ok = true;
+        else {
+            // Perpendicular: the tile spans one unit along the active plane's
+            // normal axis. Take the end nearer the cursor.
+            _match_edge = true;
+            if (active_plane == "XY") {
+                // XZ / YZ tiles span world Z [z, z+1]; XY depth = -world Z
+                var _edge_z = _mt.z;
+                if (abs(_hit.hz - (_mt.z + 1)) < abs(_hit.hz - _mt.z)) {
+                    _edge_z = _mt.z + 1;
+                }
+                _match_depth = -_edge_z;
+            }
+            if (active_plane == "XZ") {
+                // XY / YZ tiles span world Y [y, y+1]; XZ depth = world Y
+                _match_depth = _mt.y;
+                if (abs(_hit.hy - (_mt.y + 1)) < abs(_hit.hy - _mt.y)) {
+                    _match_depth = _mt.y + 1;
                 }
             }
-        }
-        if (_mt.plane == "YZ") {
-            if (abs(_ray_x) > 0.0001) {
-                _tt = (_mt.x + _mt.off_x - _cx) / _ray_x;
-                _hx = _mt.x;
-                _hy = _cy + _ray_y * _tt - _mt.off_y;
-                _hz = _cz + _ray_z * _tt - _mt.off_z;
-                if (_hy >= _mt.y && _hy < _mt.y + 1 && _hz >= _mt.z && _hz < _mt.z + 1) {
-                    _hit_ok = true;
+            if (active_plane == "YZ") {
+                // XY / XZ tiles span world X [x, x+1]; YZ depth = world X
+                _match_depth = _mt.x;
+                if (abs(_hit.hx - (_mt.x + 1)) < abs(_hit.hx - _mt.x)) {
+                    _match_depth = _mt.x + 1;
                 }
             }
         }
 
-        // Only in front of the camera, and keep the nearest
-        if (_hit_ok && _tt > 0) {
-            if (!_match_found || _tt < _match_t) {
-                _match_found = true;
-                _match_t = _tt;
-
-                if (_mt.plane == active_plane) {
-                    // Same plane: a tile's depth is its coordinate on the normal axis
-                    _match_edge = false;
-                    if (active_plane == "XY") {
-                        _match_depth = _mt.z;
-                    }
-                    if (active_plane == "XZ") {
-                        _match_depth = _mt.y;
-                    }
-                    if (active_plane == "YZ") {
-                        _match_depth = _mt.x;
-                    }
-                }
-                else {
-                    // Perpendicular: the tile spans one unit along the active
-                    // plane's normal axis. Take the nearer end to the hit.
-                    _match_edge = true;
-                    if (active_plane == "XY") {
-                        // XZ / YZ tiles span world Z [z, z+1]; XY depth = -world Z
-                        var _edge_z = _mt.z;
-                        if (abs(_hz - (_mt.z + 1)) < abs(_hz - _mt.z)) {
-                            _edge_z = _mt.z + 1;
-                        }
-                        _match_depth = -_edge_z;
-                    }
-                    if (active_plane == "XZ") {
-                        // XY / YZ tiles span world Y [y, y+1]; XZ depth = world Y
-                        _match_depth = _mt.y;
-                        if (abs(_hy - (_mt.y + 1)) < abs(_hy - _mt.y)) {
-                            _match_depth = _mt.y + 1;
-                        }
-                    }
-                    if (active_plane == "YZ") {
-                        // XY / XZ tiles span world X [x, x+1]; YZ depth = world X
-                        _match_depth = _mt.x;
-                        if (abs(_hx - (_mt.x + 1)) < abs(_hx - _mt.x)) {
-                            _match_depth = _mt.x + 1;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (_match_found) {
         _active_offset.depth = _match_depth;
         if (_match_edge) {
             tile_msg = "Depth snapped to edge: " + string(_match_depth) + " (" + active_plane + ")";
@@ -847,6 +880,32 @@ if (_shift_tap) {
         tile_msg = "No tile under the cursor to match";
     }
     tile_msg_timer = room_speed * 2;
+}
+
+// --- ALT+CLICK PICKS THE TILE UNDER THE CURSOR ---
+// The tile under the cursor becomes the held tile, orientation and all, so it
+// can be carried on with elsewhere. Alt+click never places anything.
+if (mouse_check_button_pressed(mb_left) && keyboard_check(vk_alt) && !palette_open && !menu_blocks_mouse) {
+    var _pick = tile_raycast_nearest(_cx, _cy, _cz, _ray_x, _ray_y, _ray_z);
+
+    if (_pick.found) {
+        var _pt = _pick.tile;
+        active_sub = _pt.sub;
+        brush_subs = [_pt.sub];
+        brush_cols = 1;
+        brush_rows = 1;
+        brush_rot = _pt.rot;
+        ghost_rot = _pt.rot;
+        ghost_flip_x = _pt.flip_x;
+        ghost_flip_y = _pt.flip_y;
+
+        tile_msg = "Picked tile " + string(_pt.sub);
+        tile_msg_timer = room_speed * 2;
+    }
+    else {
+        tile_msg = "No tile under the cursor to pick";
+        tile_msg_timer = room_speed * 2;
+    }
 }
 
 // Plane constant: the active plane sits at the offset depth pushed into the scene
@@ -932,7 +991,7 @@ brush_nudge_apply();
 var _place_key = string(ghost_x) + "," + string(ghost_y) + "," + string(ghost_z) + "," + active_plane + "," + string(grid_offset);
 
 // Left click places or replaces the whole brush footprint (not while palette open)
-if (mouse_check_button_pressed(mb_left) && !palette_open && !menu_blocks_mouse) {
+if (mouse_check_button_pressed(mb_left) && !keyboard_check(vk_alt) && !palette_open && !menu_blocks_mouse) {
     undo_push_snapshot();
 
     var _facing = 1;
