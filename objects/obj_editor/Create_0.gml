@@ -86,6 +86,8 @@ global.undo_stack = [];   // each entry is a deep clone of world_tiles
 global.redo_stack = [];
 global.undo_max = 100;
 scene_path = "";          // last saved/loaded file path ("" = none yet)
+global.recent_scenes = [];   // recently saved/loaded scenes, newest first
+menu_file_base = [];         // File menu as written below, before recents
 active_plane = "XY";
 
 // --- VERTEX FORMAT (colour only: grid + ghost) ---
@@ -452,6 +454,23 @@ menu_defs = [
         ]
     }
 ];
+
+// --- RECENT SCENES (File menu) ---
+// Keep a copy of the File menu as written above; recent_menu_sync() rebuilds
+// the live menu from it every time the list changes.
+for (var _fmi = 0; _fmi < array_length(menu_defs); _fmi++)
+{
+    if (menu_defs[_fmi].title == "File")
+    {
+        for (var _fii = 0; _fii < array_length(menu_defs[_fmi].items); _fii++)
+        {
+            array_push(menu_file_base, menu_defs[_fmi].items[_fii]);
+        }
+    }
+}
+recent_load();
+recent_menu_sync();
+
 
 // --- PIXEL EDITOR (texture sheet editing; see PIXEL_editor) ---
 pe_open = false;

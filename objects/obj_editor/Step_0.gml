@@ -487,10 +487,12 @@ if (_do_save_as) {
     if (_path != "") {
         scene_path = _path;
         scene_save(scene_path);
+        recent_add(scene_path);
     }
 }
 else if (_do_save) {
     scene_save(scene_path);
+    recent_add(scene_path);
 }
 
 // Ctrl+L = Load
@@ -499,7 +501,41 @@ if ((_ctrl && keyboard_check_pressed(ord("L"))) || menu_action == "scene_load") 
     if (_path != "") {
         if (scene_load(_path)) {
             scene_path = _path;
+            recent_add(scene_path);
         }
+    }
+}
+
+// --- RECENT SCENES (File menu, newest first) ---
+if (menu_action == "recent_clear") {
+    recent_clear();
+    tile_msg = "Recent scenes cleared";
+    tile_msg_timer = room_speed * 2;
+}
+
+var _recent_pick = -1;
+for (var _ri = 0; _ri < RECENT_MAX; _ri++) {
+    if (menu_action == "recent_" + string(_ri)) {
+        _recent_pick = _ri;
+    }
+}
+
+if (_recent_pick >= 0 && _recent_pick < array_length(global.recent_scenes)) {
+    var _rpath = global.recent_scenes[_recent_pick];
+    if (!file_exists(_rpath)) {
+        tile_msg = "Not there any more - taken off the list: " + filename_name(_rpath);
+        tile_msg_timer = room_speed * 4;
+        recent_remove_at(_recent_pick);
+    }
+    else if (scene_load(_rpath)) {
+        scene_path = _rpath;
+        recent_add(scene_path);
+        tile_msg = "Loaded " + filename_name(_rpath);
+        tile_msg_timer = room_speed * 3;
+    }
+    else {
+        tile_msg = "Could not read " + filename_name(_rpath);
+        tile_msg_timer = room_speed * 4;
     }
 }
 
