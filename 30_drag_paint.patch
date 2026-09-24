@@ -1,0 +1,81 @@
+diff --git a/objects/obj_editor/Create_0.gml b/objects/obj_editor/Create_0.gml
+index 25951cd..75da7df 100644
+--- a/objects/obj_editor/Create_0.gml
++++ b/objects/obj_editor/Create_0.gml
+@@ -152,6 +152,12 @@ global.tile_cell_pref = 0;
+ // Short-lived confirmation line, so a re-slice is never silent
+ tile_msg = "";
+ sheet_new_pending = "";     // size action awaiting a second pick (unsaved edits)
++
++// --- PAINT / ERASE STROKES (hold the mouse button and move) ---
++paint_active = false;    // left button held after a valid press
++paint_last_key = "";     // last cell stamped in this stroke
++erase_active = false;    // right button held after a valid press
++erase_last_key = "";     // last cell erased in this stroke
+ tile_msg_timer = 0;
+ global.tile_is_custom = false;     // true when the active set is the custom one
+ 
+diff --git a/objects/obj_editor/Step_0.gml b/objects/obj_editor/Step_0.gml
+index 2984ed2..1214263 100644
+--- a/objects/obj_editor/Step_0.gml
++++ b/objects/obj_editor/Step_0.gml
+@@ -990,9 +990,25 @@ brush_nudge_apply();
+ // --- 6. TILE PLACEMENT / REMOVAL ---
+ var _place_key = string(ghost_x) + "," + string(ghost_y) + "," + string(ghost_z) + "," + active_plane + "," + string(grid_offset);
+ 
+-// Left click places or replaces the whole brush footprint (not while palette open)
++// Left click places or replaces the whole brush footprint (not while palette
++// open). Holding the button keeps painting: each new cell the ghost moves onto
++// is stamped, and the whole drag is one undo step.
+ if (mouse_check_button_pressed(mb_left) && !keyboard_check(vk_alt) && !palette_open && !menu_blocks_mouse) {
++    paint_active = true;
++    paint_last_key = "";
+     undo_push_snapshot();
++}
++if (mouse_check_button_released(mb_left)) {
++    paint_active = false;
++}
++
++// Painting stops the moment the mouse leaves the viewport rules it started under
++if (paint_active && (palette_open || menu_blocks_mouse || keyboard_check(vk_alt))) {
++    paint_active = false;
++}
++
++if (paint_active && _place_key != paint_last_key) {
++    paint_last_key = _place_key;
+ 
+     var _facing = 1;
+     if (active_plane == "XY") {
+@@ -1085,8 +1101,31 @@ if (mouse_check_button_pressed(mb_left) && !keyboard_check(vk_alt) && !palette_o
+ }
+ 
+ // Backspace, Delete, or Right Mouse removes the whole brush footprint
+-if (keyboard_check_pressed(vk_delete) || keyboard_check_pressed(vk_backspace) || (mouse_check_button_pressed(mb_right) && !menu_blocks_mouse)) {
++// Right mouse erases the same way: press starts a stroke, holding keeps
++// erasing every new cell, and the whole drag is one undo step.
++if (mouse_check_button_pressed(mb_right) && !menu_blocks_mouse) {
++    erase_active = true;
++    erase_last_key = "";
+     undo_push_snapshot();
++}
++if (mouse_check_button_released(mb_right)) {
++    erase_active = false;
++}
++if (erase_active && menu_blocks_mouse) {
++    erase_active = false;
++}
++
++var _erase_now = false;
++if (erase_active && _place_key != erase_last_key) {
++    erase_last_key = _place_key;
++    _erase_now = true;
++}
++if (keyboard_check_pressed(vk_delete) || keyboard_check_pressed(vk_backspace)) {
++    undo_push_snapshot();
++    _erase_now = true;
++}
++
++if (_erase_now) {
+ 
+     for (var _dr = 0; _dr < brush_rows; _dr++) {
+         for (var _dc = 0; _dc < brush_cols; _dc++) {

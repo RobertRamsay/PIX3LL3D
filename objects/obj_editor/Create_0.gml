@@ -152,6 +152,12 @@ global.tile_cell_pref = 0;
 // Short-lived confirmation line, so a re-slice is never silent
 tile_msg = "";
 sheet_new_pending = "";     // size action awaiting a second pick (unsaved edits)
+
+// --- PAINT / ERASE STROKES (hold the mouse button and move) ---
+paint_active = false;    // left button held after a valid press
+paint_last_key = "";     // last cell stamped in this stroke
+erase_active = false;    // right button held after a valid press
+erase_last_key = "";     // last cell erased in this stroke
 tile_msg_timer = 0;
 global.tile_is_custom = false;     // true when the active set is the custom one
 
