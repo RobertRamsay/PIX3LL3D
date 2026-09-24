@@ -1259,9 +1259,16 @@ if (_erase_now) {
     }
 }
 
+// R turns a held cluster a quarter turn about the vertical axis, keeping every
+// tile on the grid. Otherwise R is the brush rotate below.
+if (keyboard_check_pressed(ord("R")) && !_ctrl && clip_held >= 0) {
+    clip_turn(clip_held);
+    tile_msg = "Cluster turned 90" + chr(176);
+    tile_msg_timer = room_speed * 2;
+}
 // R always rotates the held brush (and the preview).
 // Ctrl+R rotates the tile already placed under the cursor, if there is one.
-if (keyboard_check_pressed(ord("R")) && _ctrl) {
+else if (keyboard_check_pressed(ord("R")) && _ctrl) {
     if (variable_struct_exists(global.world_tiles, _place_key)) {
         undo_push_snapshot();
         var _hovered = variable_struct_get(global.world_tiles, _place_key);
@@ -1281,8 +1288,14 @@ else if (keyboard_check_pressed(ord("R")) || menu_action == "rotate") {
     ghost_rot = (ghost_rot + 1) mod 4;
 }
 
-// X flips texture horizontally: hovered tile or preview
-if (keyboard_check_pressed(ord("X")) || menu_action == "flip_x") {
+// X mirrors a held cluster (along whichever axis reads left-right on screen).
+// Otherwise X flips a single tile's texture, as below.
+if (keyboard_check_pressed(ord("X")) && clip_held >= 0) {
+    clip_mirror_on_screen(clip_held);
+    tile_msg = "Cluster mirrored";
+    tile_msg_timer = room_speed * 2;
+}
+else if (keyboard_check_pressed(ord("X")) || menu_action == "flip_x") {
     if (variable_struct_exists(global.world_tiles, _place_key) && menu_action != "flip_x") {
         var _hovered = variable_struct_get(global.world_tiles, _place_key);
         _hovered.flip_x = !_hovered.flip_x;

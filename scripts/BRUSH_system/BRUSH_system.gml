@@ -836,7 +836,9 @@ function clip_grab(_keys, _rx0, _ry0, _rx1, _ry1)
         thumb_spr: _thumb.spr,
         thumb_w: _thumb.w,
         thumb_h: _thumb.h,
-        thumb_data: _thumb.data
+        thumb_data: _thumb.data,
+        turns: 0,      // quarter turns applied since the grab (badge only)
+        mirrored: false
     });
 
     return array_length(_tiles);
@@ -1080,6 +1082,28 @@ function clip_strip_draw()
         draw_set_colour(c_white);
         var _label = string(array_length(_item.tiles));
         draw_text(_cx + CLIP_CELL - string_width(_label) - 5, _cy + CLIP_CELL - 18, _label);
+
+        // The thumbnail is the snapshot from the grab and never turns, so say
+        // how the cluster has been turned or mirrored since.
+        var _badge = "";
+        if (_item.turns != 0)
+        {
+            _badge = string(_item.turns * 90) + chr(176);
+        }
+        if (_item.mirrored)
+        {
+            if (_badge != "")
+            {
+                _badge += " ";
+            }
+            _badge += "M";
+        }
+        if (_badge != "")
+        {
+            draw_set_colour(c_yellow);
+            draw_text(_cx + 5, _cy + CLIP_CELL - 18, _badge);
+            draw_set_colour(c_white);
+        }
     }
 
     draw_set_colour(c_white);
@@ -1096,7 +1120,9 @@ function clip_serialize()
             tiles: _item.tiles,
             thumb_w: _item.thumb_w,
             thumb_h: _item.thumb_h,
-            thumb_data: _item.thumb_data
+            thumb_data: _item.thumb_data,
+            turns: _item.turns,
+            mirrored: _item.mirrored
         });
     }
     return _out;
@@ -1135,12 +1161,239 @@ function clip_deserialize(_list)
             _data = _src.thumb_data;
         }
 
+        var _turns = 0;
+        var _mirrored = false;
+        if (variable_struct_exists(_src, "turns"))
+        {
+            _turns = _src.turns;
+            _mirrored = _src.mirrored;
+        }
+
         array_push(global.clip_items, {
             tiles: _src.tiles,
             thumb_spr: clip_thumb_unpack(_w, _h, _data),
             thumb_w: _w,
             thumb_h: _h,
-            thumb_data: _data
+            thumb_data: _data,
+            turns: _turns,
+            mirrored: _mirrored
         });
+    }
+}
+
+// ------------------------------------------------------------
+//  TURNING AND MIRRORING A HELD CLUSTER
+// ------------------------------------------------------------
+// Both of these keep every tile on the grid and keep each tile's texture
+// looking the way it did - the plane, quarter-turn and flip flags all have to
+// change together for that to hold. The rules below were derived from
+// draw_tile_quad_textured's own corner and UV layout and checked exhaustively
+// against it for every plane, cell and orientation, so please don't "tidy"
+// them by hand: rebuild them from the draw function if it ever changes.
+
+/// @desc How a tile's plane / quarter-turn / flips come out after the cluster
+/// turns 90 degrees about the vertical axis. Returns a struct.
+function clip_orient_turn(_plane, _rot, _fx, _fy)
+{
+    if (_plane == "XY")
+    {
+        return { plane: "XY", rot: (_rot + 3) mod 4, fx: _fx, fy: _fy };
+    }
+    if (_plane == "YZ")
+    {
+        return { plane: "XZ", rot: _rot, fx: _fx, fy: _fy };
+    }
+
+    // XZ becomes YZ, and that wall's in-plane right axis reverses, so the
+    // texture has to be mirrored locally to look the same from the front.
+    if ((_rot mod 2) == 0)
+    {
+        return { plane: "YZ", rot: _rot, fx: !_fx, fy: _fy };
+    }
+    return { plane: "YZ", rot: _rot, fx: _fx, fy: !_fy };
+}
+
+/// @desc The same, for mirroring the cluster across the world X axis.
+/// A YZ wall's own axes are untouched by that mirror; the others are not.
+function clip_orient_mirror(_plane, _rot, _fx, _fy)
+{
+    if (_plane == "YZ")
+    {
+        return { plane: "YZ", rot: _rot, fx: _fx, fy: _fy };
+    }
+    if ((_rot mod 2) == 0)
+    {
+        return { plane: _plane, rot: _rot, fx: !_fx, fy: _fy };
+    }
+    return { plane: _plane, rot: _rot, fx: _fx, fy: !_fy };
+}
+
+/// @desc Re-centre a clip's tiles on their own middle cell, so it keeps
+/// sitting under the cursor after being turned or mirrored.
+function clip_recentre(_item)
+{
+    var _n = array_length(_item.tiles);
+    if (_n == 0)
+    {
+        return;
+    }
+
+    var _minx = _item.tiles[0].dx;
+    var _maxx = _minx;
+    var _miny = _item.tiles[0].dy;
+    var _maxy = _miny;
+
+    for (var _i = 1; _i < _n; _i++)
+    {
+        _minx = min(_minx, _item.tiles[_i].dx);
+        _maxx = max(_maxx, _item.tiles[_i].dx);
+        _miny = min(_miny, _item.tiles[_i].dy);
+        _maxy = max(_maxy, _item.tiles[_i].dy);
+    }
+
+    var _cx = floor((_minx + _maxx) / 2);
+    var _cy = floor((_miny + _maxy) / 2);
+    for (var _i = 0; _i < _n; _i++)
+    {
+        _item.tiles[_i].dx -= _cx;
+        _item.tiles[_i].dy -= _cy;
+    }
+}
+
+/// @desc Set a tile's facing from its normal, for whichever plane it is on now.
+function clip_facing_from_normal(_tile)
+{
+    if (_tile.plane == "XY")
+    {
+        _tile.facing = _tile.nrm_z;
+    }
+    if (_tile.plane == "XZ")
+    {
+        _tile.facing = _tile.nrm_y;
+    }
+    if (_tile.plane == "YZ")
+    {
+        _tile.facing = _tile.nrm_x;
+    }
+    if (_tile.facing == 0)
+    {
+        _tile.facing = 1;
+    }
+}
+
+/// @desc Turn a clip 90 degrees about the vertical axis, in place.
+function clip_turn(_index)
+{
+    if (_index < 0 || _index >= array_length(global.clip_items))
+    {
+        return;
+    }
+    var _item = global.clip_items[_index];
+
+    for (var _i = 0; _i < array_length(_item.tiles); _i++)
+    {
+        var _t = _item.tiles[_i];
+
+        // Cell: (x, y) -> (y, -x - 1), and -x for a YZ wall, whose x is a
+        // plane position rather than a one-cell span.
+        var _ox = _t.dx;
+        var _oy = _t.dy;
+        _t.dx = _oy;
+        if (_t.plane == "YZ")
+        {
+            _t.dy = -_ox;
+        }
+        else
+        {
+            _t.dy = -_ox - 1;
+        }
+
+        // Normal turns as a direction
+        var _nx = _t.nrm_x;
+        var _ny = _t.nrm_y;
+        _t.nrm_x = _ny;
+        _t.nrm_y = -_nx;
+
+        // So does the decal offset
+        var _fx2 = _t.off_x;
+        var _fy2 = _t.off_y;
+        _t.off_x = _fy2;
+        _t.off_y = -_fx2;
+
+        var _o = clip_orient_turn(_t.plane, _t.rot, _t.flip_x, _t.flip_y);
+        _t.plane = _o.plane;
+        _t.rot = _o.rot;
+        _t.flip_x = _o.fx;
+        _t.flip_y = _o.fy;
+
+        clip_facing_from_normal(_t);
+    }
+
+    clip_recentre(_item);
+    _item.turns = (_item.turns + 1) mod 4;
+}
+
+/// @desc Mirror a clip across the world X axis, in place.
+function clip_mirror(_index)
+{
+    if (_index < 0 || _index >= array_length(global.clip_items))
+    {
+        return;
+    }
+    var _item = global.clip_items[_index];
+
+    for (var _i = 0; _i < array_length(_item.tiles); _i++)
+    {
+        var _t = _item.tiles[_i];
+
+        if (_t.plane == "YZ")
+        {
+            _t.dx = -_t.dx;
+        }
+        else
+        {
+            _t.dx = -_t.dx - 1;
+        }
+
+        _t.nrm_x = -_t.nrm_x;
+        _t.off_x = -_t.off_x;
+
+        var _o = clip_orient_mirror(_t.plane, _t.rot, _t.flip_x, _t.flip_y);
+        _t.plane = _o.plane;
+        _t.rot = _o.rot;
+        _t.flip_x = _o.fx;
+        _t.flip_y = _o.fy;
+
+        clip_facing_from_normal(_t);
+    }
+
+    clip_recentre(_item);
+    _item.mirrored = !_item.mirrored;
+}
+
+/// @desc Mirror across the world Y axis: the X mirror plus a half turn.
+/// (Checked against the draw function as its own transform.)
+function clip_mirror_y(_index)
+{
+    clip_mirror(_index);
+    clip_turn(_index);
+    clip_turn(_index);
+
+    // Those two turns were bookkeeping for the mirror, not the user's doing
+    var _item = global.clip_items[_index];
+    _item.turns = (_item.turns + 2) mod 4;
+}
+
+/// @desc X on a held cluster: mirror along whichever world axis reads as
+/// left-right on screen from where the camera is now.
+function clip_mirror_on_screen(_index)
+{
+    if (abs(dsin(cam_yaw)) >= abs(dcos(cam_yaw)))
+    {
+        clip_mirror(_index);
+    }
+    else
+    {
+        clip_mirror_y(_index);
     }
 }
