@@ -676,13 +676,8 @@ function clip_tile_corners(_t)
     ];
 }
 
-/// @desc Keys of the placed tiles you can actually see inside this window-space
-/// rectangle: a tile is taken when the middle of its face is inside the
-/// rectangle AND nothing else is in front of that middle point.
-/// (It used to take anything whose outline merely touched the rectangle, which
-/// swept in tall or long walls behind the thing you meant, and those extras
-/// then overwrote real tiles wherever the clip was pasted.)
-/// Backfaces are skipped while culling is on, same as picking.
+/// @desc Keys of every placed tile whose projected quad touches this window-space
+/// rectangle. Backfaces are skipped while culling is on, same as picking.
 function clip_select_rect(_x0, _y0, _x1, _y1)
 {
     var _rx0 = min(_x0, _x1);
@@ -703,41 +698,47 @@ function clip_select_rect(_x0, _y0, _x1, _y1)
             continue;
         }
 
-        // Middle of the face, in the world
         var _c = clip_tile_corners(_t);
-        var _mx = (_c[0][0] + _c[1][0] + _c[2][0] + _c[3][0]) * 0.25;
-        var _my = (_c[0][1] + _c[1][1] + _c[2][1] + _c[3][1]) * 0.25;
-        var _mz = (_c[0][2] + _c[1][2] + _c[2][2] + _c[3][2]) * 0.25;
+        var _minx = 0;
+        var _maxx = 0;
+        var _miny = 0;
+        var _maxy = 0;
+        var _ok = true;
 
-        // ...must land inside the rectangle on screen
-        var _p = clip_project(_b, _mx, _my, _mz);
-        if (!_p.ok)
+        for (var _k = 0; _k < 4; _k++)
         {
-            continue;
-        }
-        if (_p.sx < _rx0 || _p.sx > _rx1 || _p.sy < _ry0 || _p.sy > _ry1)
-        {
-            continue;
-        }
-
-        // ...and be the first thing the eye meets along that line. The ray is
-        // scaled so t = 1 is the face's own middle; anything hit clearly before
-        // that is in the way. (A neighbour sharing the plane hits at t = 1 too,
-        // so only a hit well short of it counts as hiding this one.)
-        // A decal floating over this same cell doesn't hide it: both belong to
-        // the same spot and get copied together.
-        var _front = tile_raycast_nearest(_b.px, _b.py, _b.pz, _mx - _b.px, _my - _b.py, _mz - _b.pz);
-        if (_front.found && _front.key != _names[_i] && _front.t < 0.995)
-        {
-            var _ft = _front.tile;
-            var _same_spot = (_ft.plane == _t.plane && _ft.x == _t.x && _ft.y == _t.y && _ft.z == _t.z);
-            if (!_same_spot)
+            var _p = clip_project(_b, _c[_k][0], _c[_k][1], _c[_k][2]);
+            if (!_p.ok)
             {
-                continue;
+                _ok = false;
+                break;
+            }
+            if (_k == 0)
+            {
+                _minx = _p.sx;
+                _maxx = _p.sx;
+                _miny = _p.sy;
+                _maxy = _p.sy;
+            }
+            else
+            {
+                _minx = min(_minx, _p.sx);
+                _maxx = max(_maxx, _p.sx);
+                _miny = min(_miny, _p.sy);
+                _maxy = max(_maxy, _p.sy);
             }
         }
 
-        array_push(_hits, _names[_i]);
+        if (!_ok)
+        {
+            continue;
+        }
+
+        // Touching counts: plain rectangle overlap
+        if (_maxx >= _rx0 && _minx <= _rx1 && _maxy >= _ry0 && _miny <= _ry1)
+        {
+            array_push(_hits, _names[_i]);
+        }
     }
 
     return _hits;
