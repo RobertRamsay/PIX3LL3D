@@ -1,0 +1,82 @@
+diff --git a/objects/obj_editor/Create_0.gml b/objects/obj_editor/Create_0.gml
+index ae7f603..9230279 100644
+--- a/objects/obj_editor/Create_0.gml
++++ b/objects/obj_editor/Create_0.gml
+@@ -166,6 +166,11 @@ sel_y1 = 0;
+ clip_held = -1;           // index of the clip in hand (-1 = none)
+ clip_hover = -1;          // index under the mouse in the strip (-1 = none)
+ clip_blocks_mouse = false; // the strip owns the mouse this frame
++clip_capture_pending = false; // a thumbnail grab is waiting for a clean frame
++clip_capture_wait = 0;        // frames left to wait before grabbing
++clip_capture_keys = [];       // tiles the pending grab will take
++clip_capture_rect = [0, 0, 0, 0]; // drag rectangle the thumbnail comes from
++clip_capture_grid = false;    // was the grid on before the capture
+ 
+ // --- PAINT / ERASE STROKES (hold the mouse button and move) ---
+ paint_active = false;    // left button held after a valid press
+diff --git a/objects/obj_editor/Draw_0.gml b/objects/obj_editor/Draw_0.gml
+index aa6eeef..4230f7c 100644
+--- a/objects/obj_editor/Draw_0.gml
++++ b/objects/obj_editor/Draw_0.gml
+@@ -88,7 +88,7 @@ if (array_length(sel_keys) > 0) {
+ 
+ // --- 4. DRAW GHOST TILE (always visible, never culled; hidden while orbiting) ---
+ gpu_set_cullmode(cull_noculling);
+-if (!mouse_check_button(mb_right) && !mouse_check_button(mb_middle) && !palette_open && !menu_blocks_mouse) {
++if (!mouse_check_button(mb_right) && !mouse_check_button(mb_middle) && !palette_open && !menu_blocks_mouse && !clip_capture_pending) {
+     // A held cluster replaces the single-tile ghost
+     if (clip_held >= 0) {
+         clip_ghost_draw(clip_held, ghost_x, ghost_y, ghost_z);
+diff --git a/objects/obj_editor/Step_0.gml b/objects/obj_editor/Step_0.gml
+index 2ba209a..de61f31 100644
+--- a/objects/obj_editor/Step_0.gml
++++ b/objects/obj_editor/Step_0.gml
+@@ -1082,15 +1082,43 @@ if (sel_dragging) {
+     }
+ }
+ 
+-if (_ctrl && keyboard_check_pressed(ord("C")) && array_length(sel_keys) > 0) {
+-    var _grabbed = clip_grab(sel_keys, sel_x0, sel_y0, sel_x1, sel_y1);
+-    if (_grabbed > 0) {
+-        tile_msg = "Copied " + string(_grabbed) + " tiles - click to place, Esc to put it down";
++// The thumbnail is grabbed from the application surface, which holds the frame
++// drawn LAST step - so the grid, the yellow selection tint and the ghost have
++// to be out of the way a frame before the grab, not at the moment of it.
++// Ctrl+C therefore arms a capture, and the grab happens once a clean frame has
++// been drawn. Anything turned off for it goes back to how it was afterwards.
++if (clip_capture_pending) {
++    if (clip_capture_wait > 0) {
++        clip_capture_wait -= 1;
++    }
++    else {
++        var _grabbed = clip_grab(clip_capture_keys, clip_capture_rect[0], clip_capture_rect[1], clip_capture_rect[2], clip_capture_rect[3]);
++
++        grid_visible = clip_capture_grid;
++        clip_capture_pending = false;
++        clip_capture_keys = [];
++
++        if (_grabbed > 0) {
++            tile_msg = "Copied " + string(_grabbed) + " tiles - click to place, Esc to put it down";
++        }
++        else {
++            tile_msg = "Nothing copied";
++        }
+         tile_msg_timer = room_speed * 3;
+-        sel_keys = [];
+     }
+ }
+ 
++if (_ctrl && keyboard_check_pressed(ord("C")) && array_length(sel_keys) > 0 && !clip_capture_pending) {
++    clip_capture_pending = true;
++    clip_capture_wait = 1;
++    clip_capture_keys = sel_keys;
++    clip_capture_rect = [sel_x0, sel_y0, sel_x1, sel_y1];
++    clip_capture_grid = grid_visible;
++
++    grid_visible = false;   // put back once the grab is done
++    sel_keys = [];          // drops the yellow tint for the capture frame
++}
++
+ // --- 6. TILE PLACEMENT / REMOVAL ---
+ var _place_key = string(ghost_x) + "," + string(ghost_y) + "," + string(ghost_z) + "," + active_plane + "," + string(grid_offset);
+ 
