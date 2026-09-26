@@ -31,8 +31,9 @@ if (demo_visible)
 }
 
 // --- SHORTCUT KEYS PANEL (F9 / Help menu; modal in both editors) ---
-shortcuts_update();
-if (shortcuts_open)
+// Also skips the rest of the Step on the frame it closes, so the click on
+// Close can't fall through and place a tile.
+if (shortcuts_update())
 {
     exit;
 }

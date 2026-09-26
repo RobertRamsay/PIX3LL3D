@@ -705,36 +705,140 @@ function menu_draw()
 // Modal, in both editors. The list itself lives in the Create event
 // (shortcut_sections) so it is easy to keep in step with the code.
 
+/// @desc The panel's outer rectangle and its Close button (GUI pixels).
+function shortcuts_rects()
+{
+    draw_set_font(font_pixeldown);
+    var _x1 = 40;
+    var _y1 = menu_bar_h + 24;
+    var _x2 = display_get_gui_width() - 40;
+    var _y2 = display_get_gui_height() - 30;
+    var _bw = string_width("Close") + 36;
+    var _bh = string_height("Ag") + 12;
+    return {
+        x1: _x1,
+        y1: _y1,
+        x2: _x2,
+        y2: _y2,
+        bx: _x2 - 16 - _bw,
+        by: _y1 + 10,
+        bw: _bw,
+        bh: _bh
+    };
+}
+
+/// @desc True when the mouse is over the Close button.
+function shortcuts_close_hover()
+{
+    var _r = shortcuts_rects();
+    var _mx = device_mouse_x_to_gui(0);
+    var _my = device_mouse_y_to_gui(0);
+    return (_mx >= _r.bx && _mx <= _r.bx + _r.bw && _my >= _r.by && _my <= _r.by + _r.bh);
+}
+
 /// @desc Open / close handling. Call in the Step event before anything that
-/// reads the keyboard or mouse; the caller exits the Step while it is open.
+/// reads the keyboard or mouse. Returns true when the rest of the Step must
+/// be skipped this frame: while the panel is open, and also on the frame it
+/// closes, so the click on Close never carries through and places a tile.
 function shortcuts_update()
 {
     if (keyboard_check_pressed(vk_f9) || menu_action == "shortcuts")
     {
         shortcuts_open = !shortcuts_open;
-        return;
+        return true;
     }
 
     if (!shortcuts_open)
     {
-        return;
+        return false;
     }
 
     if (keyboard_check_pressed(vk_escape))
     {
         shortcuts_open = false;
         menu_esc_consumed = true;
-        return;
+        return true;
     }
 
-    // A click anywhere that isn't the menu bar closes it
-    if (!menu_blocks_mouse)
+    // Only the Close button closes it by mouse; every other click is swallowed
+    if (mouse_check_button_pressed(mb_left) && shortcuts_close_hover())
     {
-        if (mouse_check_button_pressed(mb_left) || mouse_check_button_pressed(mb_right))
+        shortcuts_open = false;
+        return true;
+    }
+
+    return true;
+}
+
+/// @desc Work out the columns: which groups go in each, and how wide each
+/// column has to be for its longest line. Each section starts a new column,
+/// and a group that won't fit the height moves to the next one.
+function shortcuts_layout(_top, _bottom, _line)
+{
+    var _cols = [];
+    var _cur = { entries: [], key_w: 0, text_w: 0 };
+    var _cy = _top;
+
+    for (var _s = 0; _s < array_length(shortcut_sections); _s++)
+    {
+        var _sec = shortcut_sections[_s];
+
+        if (array_length(_cur.entries) > 0)
         {
-            shortcuts_open = false;
+            array_push(_cols, _cur);
+            _cur = { entries: [], key_w: 0, text_w: 0 };
+            _cy = _top;
+        }
+
+        array_push(_cur.entries, { kind: "section", title: _sec.title, rows: [] });
+        _cur.text_w = max(_cur.text_w, string_width(_sec.title));
+        _cy += _line + 6;
+
+        for (var _g = 0; _g < array_length(_sec.groups); _g++)
+        {
+            var _grp = _sec.groups[_g];
+            var _need = _line * (array_length(_grp.rows) + 1) + 10;
+
+            if (_cy + _need > _bottom && array_length(_cur.entries) > 0)
+            {
+                array_push(_cols, _cur);
+                _cur = { entries: [], key_w: 0, text_w: 0 };
+                _cy = _top;
+            }
+
+            array_push(_cur.entries, { kind: "group", title: _grp.title, rows: _grp.rows });
+            _cur.text_w = max(_cur.text_w, string_width(_grp.title));
+            for (var _r = 0; _r < array_length(_grp.rows); _r++)
+            {
+                _cur.key_w = max(_cur.key_w, string_width(_grp.rows[_r][0]));
+            }
+            _cy += _need;
         }
     }
+
+    if (array_length(_cur.entries) > 0)
+    {
+        array_push(_cols, _cur);
+    }
+
+    // Each column's full width: key column + description column
+    for (var _c = 0; _c < array_length(_cols); _c++)
+    {
+        var _col = _cols[_c];
+        var _desc_w = 0;
+        for (var _e = 0; _e < array_length(_col.entries); _e++)
+        {
+            var _rows = _col.entries[_e].rows;
+            for (var _r = 0; _r < array_length(_rows); _r++)
+            {
+                _desc_w = max(_desc_w, string_width(_rows[_r][1]));
+            }
+        }
+        _col.key_w += 18;
+        _col.width = max(_col.text_w, 8 + _col.key_w + _desc_w);
+    }
+
+    return _cols;
 }
 
 /// @desc Draw the panel. Call from Draw GUI (both editors), before menu_draw.
@@ -754,99 +858,99 @@ function shortcuts_draw()
     draw_set_halign(fa_left);
     draw_set_valign(fa_top);
 
+    var _r = shortcuts_rects();
+
     // Dim what's behind
     draw_set_alpha(0.6);
     draw_set_colour(c_black);
     draw_rectangle(0, 0, _gw, _gh, false);
     draw_set_alpha(1);
 
-    var _x1 = 40;
-    var _y1 = menu_bar_h + 24;
-    var _x2 = _gw - 40;
-    var _y2 = _gh - 30;
-
     draw_set_colour(make_colour_rgb(30, 32, 42));
-    draw_rectangle(_x1, _y1, _x2, _y2, false);
+    draw_rectangle(_r.x1, _r.y1, _r.x2, _r.y2, false);
     draw_set_colour(make_colour_rgb(80, 84, 100));
-    draw_rectangle(_x1, _y1, _x2, _y2, true);
+    draw_rectangle(_r.x1, _r.y1, _r.x2, _r.y2, true);
 
     var _line = string_height("Ag") + 4;
     var _pad = 22;
 
     // Title
     draw_set_colour(c_white);
-    draw_text(_x1 + _pad, _y1 + 14, "SHORTCUT KEYS");
-    draw_set_colour(make_colour_rgb(150, 155, 175));
-    var _hint = "F9, Esc or click to close";
-    draw_text(_x2 - _pad - string_width(_hint), _y1 + 14, _hint);
+    draw_text(_r.x1 + _pad, _r.y1 + 16, "SHORTCUT KEYS");
 
-    // Key column width: the widest key text anywhere
-    var _key_w = 0;
-    for (var _s = 0; _s < array_length(shortcut_sections); _s++)
+    // Close button
+    var _fill = make_colour_rgb(58, 62, 78);
+    if (shortcuts_close_hover())
     {
-        var _groups = shortcut_sections[_s].groups;
-        for (var _g = 0; _g < array_length(_groups); _g++)
-        {
-            var _rows = _groups[_g].rows;
-            for (var _r = 0; _r < array_length(_rows); _r++)
-            {
-                _key_w = max(_key_w, string_width(_rows[_r][0]));
-            }
-        }
+        _fill = make_colour_rgb(60, 105, 200);
     }
-    _key_w += 18;
+    draw_set_colour(_fill);
+    draw_rectangle(_r.bx, _r.by, _r.bx + _r.bw, _r.by + _r.bh, false);
+    draw_set_colour(make_colour_rgb(120, 125, 145));
+    draw_rectangle(_r.bx, _r.by, _r.bx + _r.bw, _r.by + _r.bh, true);
+    draw_set_colour(c_white);
+    draw_set_halign(fa_center);
+    draw_set_valign(fa_middle);
+    draw_text(_r.bx + _r.bw * 0.5, _r.by + _r.bh * 0.5, "Close");
+    draw_set_halign(fa_left);
+    draw_set_valign(fa_top);
 
-    // Flow the groups into columns; each section starts a fresh column
-    var _cols = 4;
-    var _col_w = floor((_x2 - _x1 - _pad * 2) / _cols);
-    var _top = _y1 + 14 + _line * 2;
-    var _bottom = _y2 - _pad;
-    var _col = 0;
-    var _cy = _top;
+    var _hint = "F9 or Esc also close";
+    draw_set_colour(make_colour_rgb(150, 155, 175));
+    draw_text(_r.bx - 20 - string_width(_hint), _r.y1 + 16, _hint);
 
-    for (var _s = 0; _s < array_length(shortcut_sections); _s++)
+    // Columns, each as wide as its own content
+    var _top = _r.y1 + 16 + _line * 2;
+    var _bottom = _r.y2 - _pad;
+    var _cols = shortcuts_layout(_top, _bottom, _line);
+
+    // Spread the spare width evenly between the columns
+    var _used = 0;
+    for (var _c = 0; _c < array_length(_cols); _c++)
     {
-        var _sec = shortcut_sections[_s];
+        _used += _cols[_c].width;
+    }
+    var _gap = 40;
+    if (array_length(_cols) > 1)
+    {
+        _gap = max(24, ((_r.x2 - _r.x1 - _pad * 2) - _used) / (array_length(_cols) - 1));
+        _gap = min(_gap, 90);
+    }
 
-        // New section: new column (unless we're still at the top of one)
-        if (_cy > _top)
+    var _cx = _r.x1 + _pad;
+    for (var _c = 0; _c < array_length(_cols); _c++)
+    {
+        var _col = _cols[_c];
+        var _cy = _top;
+
+        for (var _e = 0; _e < array_length(_col.entries); _e++)
         {
-            _col += 1;
-            _cy = _top;
-        }
+            var _ent = _col.entries[_e];
 
-        var _cx = _x1 + _pad + _col * _col_w;
-        draw_set_colour(make_colour_rgb(255, 210, 90));
-        draw_text(_cx, _cy, _sec.title);
-        _cy += _line + 6;
-
-        for (var _g = 0; _g < array_length(_sec.groups); _g++)
-        {
-            var _grp = _sec.groups[_g];
-            var _need = _line * (array_length(_grp.rows) + 1) + 10;
-
-            // Doesn't fit: next column
-            if (_cy + _need > _bottom && _cy > _top)
+            if (_ent.kind == "section")
             {
-                _col += 1;
-                _cy = _top;
-                _cx = _x1 + _pad + _col * _col_w;
+                draw_set_colour(make_colour_rgb(255, 210, 90));
+                draw_text(_cx, _cy, _ent.title);
+                _cy += _line + 6;
+                continue;
             }
 
             draw_set_colour(make_colour_rgb(120, 170, 255));
-            draw_text(_cx, _cy, _grp.title);
+            draw_text(_cx, _cy, _ent.title);
             _cy += _line;
 
-            for (var _r = 0; _r < array_length(_grp.rows); _r++)
+            for (var _k = 0; _k < array_length(_ent.rows); _k++)
             {
                 draw_set_colour(c_white);
-                draw_text(_cx + 8, _cy, _grp.rows[_r][0]);
+                draw_text(_cx + 8, _cy, _ent.rows[_k][0]);
                 draw_set_colour(make_colour_rgb(185, 190, 205));
-                draw_text(_cx + 8 + _key_w, _cy, _grp.rows[_r][1]);
+                draw_text(_cx + 8 + _col.key_w, _cy, _ent.rows[_k][1]);
                 _cy += _line;
             }
             _cy += 10;
         }
+
+        _cx += _col.width + _gap;
     }
 
     draw_set_colour(c_white);
