@@ -88,6 +88,8 @@ function postfx_uniforms()
 function postfx_reset()
 {
     fx = postfx_defaults();
+
+    tut_event("fx_reset");
 }
 
 // ============================================================
@@ -230,6 +232,7 @@ function postfx_update()
 {
     if (keyboard_check_pressed(vk_f6) || menu_action == "fx_crt")
     {
+        tut_event("crt_toggle");
         if (fx_crt_on)
         {
             fx_crt_on = false;
@@ -249,6 +252,7 @@ function postfx_update()
         else
         {
             fx_panel_open = true;
+            tut_event("fx_panel");
         }
     }
 
@@ -297,6 +301,7 @@ function postfx_update()
         {
             fx_drag = fx_hover;
             postfx_set_norm(fx_drag, (_mx - _x0) / max(_x1 - _x0, 1));
+            tut_event("fx_slider");
         }
         else if (_mx >= fx_btn_reset[0] && _mx < fx_btn_reset[2] && _my >= fx_btn_reset[1] && _my < fx_btn_reset[3])
         {

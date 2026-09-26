@@ -370,6 +370,15 @@ function menu_update()
 
     menu_build_dropdown();
 
+    // Tour: the File menu is open
+    if (menu_open >= 0 && menu_open < array_length(menu_vis))
+    {
+        if (menu_defs[menu_vis[menu_open]].title == "File")
+        {
+            tut_event("menu_file");
+        }
+    }
+
     // --- Item under the mouse ---
     menu_item_hover = menu_find_hover_item(_mx, _my);
 

@@ -614,6 +614,7 @@ tut_toast = "";           // chapter-complete message
 tut_toast_timer = 0;
 tut_sparks = [];          // celebration particles
 tut_saved_path = "";      // user's scene path, put back when the tour ends
+tut_mouse_over = false;   // the mouse is over the tour card this frame
 
 // Each step finishes when tut_event(ev) has arrived `need` times while it is
 // the current step. `how` is what the card says; `key` is the pulsing badge.
@@ -647,6 +648,83 @@ tut_chapters = [
             { id: "flip_y",    text: "Flip the other way",  how: "Press Y to flip it top to bottom.", key: "Y", ev: "flip_y", need: 1, count: 0, done: false },
             { id: "stamp",     text: "Stamp the block",     how: "Click in the scene to place the whole block in one go.", key: "LMB", ev: "place", need: 1, count: 0, done: false },
             { id: "alt_pick",  text: "Pick up from the scene", how: "Hold Alt and click a placed tile: it becomes your brush, turned and flipped the same way.", key: "Alt + LMB", ev: "alt_pick", need: 1, count: 0, done: false }
+        ]
+    },
+    {
+        title: "Planes and depth", medal: "Surveyor",
+        steps: [
+            { id: "plane_xy",   text: "Look at the floor",  how: "Orbit until you look down on the grid. The box top-left says Plane: XY - tiles now lie flat.", key: "Alt + MMB drag", ev: "plane_xy", need: 1, count: 0, done: false },
+            { id: "depth_q",    text: "Lift the plane",      how: "Press Q a couple of times. The plane you paint on moves up, away from the grid.", key: "Q", ev: "depth_q", need: 2, count: 0, done: false },
+            { id: "depth_e",    text: "Lower it again",      how: "Press E to bring the plane back toward you.", key: "E", ev: "depth_e", need: 2, count: 0, done: false },
+            { id: "depth_w",    text: "Reset the depth",     how: "Press W to put the plane straight back to zero.", key: "W", ev: "depth_reset", need: 1, count: 0, done: false },
+            { id: "match",      text: "Match a tile's depth", how: "Point at one of your tiles and tap Shift (or Tab) on its own. The plane jumps to that tile's height.", key: "Shift or Tab (tap)", ev: "depth_match", need: 1, count: 0, done: false },
+            { id: "plane_wall", text: "Face a wall",         how: "Orbit round to look from the side until the box says Plane: XZ or YZ. Now tiles stand upright.", key: "Alt + MMB drag", ev: "plane_wall", need: 1, count: 0, done: false },
+            { id: "edge",       text: "Snap to an edge",     how: "Point near the edge of a floor tile and tap Shift or Tab. The wall plane lines up with that edge.", key: "Shift or Tab (tap)", ev: "depth_edge", need: 1, count: 0, done: false },
+            { id: "wall",       text: "Build a wall",        how: "Click to place an upright tile along that edge.", key: "LMB", ev: "place_wall", need: 1, count: 0, done: false }
+        ]
+    },
+    {
+        title: "Decals and nudging", medal: "Detailer",
+        steps: [
+            { id: "decal_up",   text: "Float a decal",       how: "Press the full stop twice. Your next tile will hover a little in front of the plane.", key: ".", ev: "decal_fwd", need: 2, count: 0, done: false },
+            { id: "decal_put",  text: "Place the decal",     how: "Click over an existing tile to lay the decal on top of it.", key: "LMB", ev: "place_decal", need: 1, count: 0, done: false },
+            { id: "decal_down", text: "Push it back",        how: "Press the comma to move the decal offset back the other way.", key: ",", ev: "decal_back", need: 1, count: 0, done: false },
+            { id: "decal_zero", text: "Back to flat",        how: "Press 0 to reset the decal offset.", key: "0", ev: "decal_reset", need: 1, count: 0, done: false },
+            { id: "nudge",      text: "Nudge the brush",     how: "Tap the arrow keys to shift the brush one texture pixel at a time.", key: "Arrow keys", ev: "nudge", need: 3, count: 0, done: false },
+            { id: "nudge_fast", text: "Nudge faster",        how: "Hold Shift and tap an arrow to move four pixels at a time.", key: "Shift + arrows", ev: "nudge_fast", need: 2, count: 0, done: false },
+            { id: "nudge_off",  text: "Reset the nudge",     how: "Press N to snap the brush back onto the grid.", key: "N", ev: "nudge_reset", need: 1, count: 0, done: false }
+        ]
+    },
+    {
+        title: "Clusters", medal: "Copy Master",
+        steps: [
+            { id: "select",   text: "Select some tiles",     how: "Hold Ctrl and Shift, then drag a box around a few of your tiles. They light up yellow.", key: "Ctrl + Shift + drag", ev: "select", need: 1, count: 0, done: false },
+            { id: "copy",     text: "Copy them",             how: "Press Ctrl+C. The group becomes a cluster in the strip down the left.", key: "Ctrl + C", ev: "copy", need: 1, count: 0, done: false },
+            { id: "paste",    text: "Place the cluster",     how: "Click somewhere empty to stamp the whole cluster.", key: "LMB", ev: "paste", need: 1, count: 0, done: false },
+            { id: "c_turn",   text: "Turn the cluster",      how: "Press R to turn the held cluster a quarter turn, then click to place it again if you like.", key: "R", ev: "cluster_turn", need: 1, count: 0, done: false },
+            { id: "c_mirror", text: "Mirror the cluster",    how: "Press X to mirror it.", key: "X", ev: "cluster_mirror", need: 1, count: 0, done: false },
+            { id: "c_drop",   text: "Put it down",           how: "Press Esc to go back to single tiles.", key: "Esc", ev: "cluster_drop", need: 1, count: 0, done: false },
+            { id: "c_strip",  text: "Pick it up again",      how: "Click the cluster's picture in the strip on the left to hold it again.", key: "LMB on strip", ev: "strip_pick", need: 1, count: 0, done: false }
+        ]
+    },
+    {
+        title: "Seeing clearly", medal: "Sharp Eye",
+        steps: [
+            { id: "v_grid", text: "Grid off and on",       how: "Press G twice: once to hide the grid, once to bring it back.", key: "G", ev: "grid_toggle", need: 2, count: 0, done: false },
+            { id: "v_cull", text: "Backface culling",      how: "Press B twice. With culling on, the back of every tile is hidden.", key: "B", ev: "cull_toggle", need: 2, count: 0, done: false },
+            { id: "v_wire", text: "Wireframe",             how: "Press F twice. Wireframe outlines every tile - magenta ones have no graphic and are invisible.", key: "F", ev: "wire_toggle", need: 2, count: 0, done: false },
+            { id: "v_filt", text: "Texture filter",        how: "Press T twice to see tiles smoothed, then crisp pixels again.", key: "T", ev: "filter_toggle", need: 2, count: 0, done: false }
+        ]
+    },
+    {
+        title: "Pixel editor", medal: "Pixel Painter",
+        steps: [
+            { id: "pe_open",   text: "Open the pixel editor", how: "Press P. Your whole tileset opens as one image you can paint on.", key: "P", ev: "pe_open", need: 1, count: 0, done: false },
+            { id: "pe_paint",  text: "Paint",                 how: "With the pencil (B), click or drag on the sheet with the left button.", key: "B, then LMB", ev: "pe_paint", need: 1, count: 0, done: false },
+            { id: "pe_erase",  text: "Erase",                 how: "Right-click paints the second colour, which starts fully transparent - so it erases.", key: "RMB", ev: "pe_erase", need: 1, count: 0, done: false },
+            { id: "pe_pick",   text: "Pick a colour",         how: "Hold Alt and click a pixel to take its colour.", key: "Alt + LMB", ev: "pe_pick", need: 1, count: 0, done: false },
+            { id: "pe_fill",   text: "Fill an area",          how: "Press G for the fill tool, then click inside an area.", key: "G, then LMB", ev: "pe_fill", need: 1, count: 0, done: false },
+            { id: "pe_select", text: "Select a patch",        how: "Press M for select, then drag a box on the sheet.", key: "M, then drag", ev: "pe_select", need: 1, count: 0, done: false },
+            { id: "pe_move",   text: "Move it",               how: "Drag from inside the box to lift those pixels and move them.", key: "Drag inside", ev: "pe_move", need: 1, count: 0, done: false },
+            { id: "pe_apply",  text: "Apply to the tiles",    how: "Press Enter. Every placed tile updates to your new art.", key: "Enter", ev: "pe_apply", need: 1, count: 0, done: false },
+            { id: "pe_close",  text: "Back to 3D",            how: "Press P to close the editor and see the change in the scene.", key: "P", ev: "pe_close", need: 1, count: 0, done: false }
+        ]
+    },
+    {
+        title: "Looks", medal: "Showrunner",
+        steps: [
+            { id: "crt",       text: "Turn on the CRT",       how: "Press F6 for the CRT monitor effect.", key: "F6", ev: "crt_toggle", need: 1, count: 0, done: false },
+            { id: "fx_panel",  text: "Open its controls",     how: "Press F7 to open the Post FX panel.", key: "F7", ev: "fx_panel", need: 1, count: 0, done: false },
+            { id: "fx_slide",  text: "Play with the sliders", how: "Drag a couple of the sliders and watch the picture change.", key: "LMB drag", ev: "fx_slider", need: 2, count: 0, done: false },
+            { id: "fx_reset",  text: "Back to defaults",      how: "Click Reset defaults in the panel (or Post FX > Reset to defaults).", key: "Reset defaults", ev: "fx_reset", need: 1, count: 0, done: false }
+        ]
+    },
+    {
+        title: "Keeping your work", medal: "Archivist",
+        steps: [
+            { id: "save",      text: "Save the scene",        how: "Press Ctrl+S and give this practice scene a name. The tileset and your clusters are saved inside it.", key: "Ctrl + S", ev: "save_scene", need: 1, count: 0, done: false },
+            { id: "reload",    text: "Open it again",         how: "Open the File menu and pick it from the recent list near the top (or press Ctrl+L).", key: "File > recent", ev: "scene_loaded", need: 1, count: 0, done: false },
+            { id: "file_menu", text: "Find Export",           how: "Open the File menu: Export OBJ (Alt+Shift+S) takes your scene into Blender or any 3D tool.", key: "File menu", ev: "menu_file", need: 1, count: 0, done: false }
         ]
     }
 ];

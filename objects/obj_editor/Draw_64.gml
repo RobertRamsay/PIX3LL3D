@@ -14,6 +14,7 @@ if (pe_open)
     about_banner_draw();
     about_draw();
     demo_draw();
+    tut_draw();
     shortcuts_draw();
     menu_draw();
     exit;

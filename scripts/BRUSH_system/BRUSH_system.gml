@@ -149,6 +149,7 @@ function brush_nudge_update()
     if ((keyboard_check_pressed(ord("N")) && !keyboard_check(vk_control)) || menu_action == "nudge_reset")
     {
         brush_nudge_reset();
+        tut_event("nudge_reset");
         return;
     }
 
@@ -199,6 +200,15 @@ function brush_nudge_update()
     if (_right == 0 && _up == 0)
     {
         return;
+    }
+
+    if (_step > 1)
+    {
+        tut_event("nudge_fast");
+    }
+    else
+    {
+        tut_event("nudge");
     }
 
     var _basis = brush_cam_basis();
@@ -1146,6 +1156,7 @@ function clip_strip_update()
     if (mouse_check_button_pressed(mb_left))
     {
         clip_held = clip_hover;
+        tut_event("strip_pick");
         tile_msg = "Holding cluster " + string(clip_hover + 1) + " - click to place it";
         tile_msg_timer = room_speed * 2;
     }

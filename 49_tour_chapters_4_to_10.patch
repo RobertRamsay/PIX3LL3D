@@ -1,0 +1,582 @@
+diff --git a/objects/obj_editor/Create_0.gml b/objects/obj_editor/Create_0.gml
+index 62664a5..5487662 100644
+--- a/objects/obj_editor/Create_0.gml
++++ b/objects/obj_editor/Create_0.gml
+@@ -614,6 +614,7 @@ tut_toast = "";           // chapter-complete message
+ tut_toast_timer = 0;
+ tut_sparks = [];          // celebration particles
+ tut_saved_path = "";      // user's scene path, put back when the tour ends
++tut_mouse_over = false;   // the mouse is over the tour card this frame
+ 
+ // Each step finishes when tut_event(ev) has arrived `need` times while it is
+ // the current step. `how` is what the card says; `key` is the pulsing badge.
+@@ -648,6 +649,83 @@ tut_chapters = [
+             { id: "stamp",     text: "Stamp the block",     how: "Click in the scene to place the whole block in one go.", key: "LMB", ev: "place", need: 1, count: 0, done: false },
+             { id: "alt_pick",  text: "Pick up from the scene", how: "Hold Alt and click a placed tile: it becomes your brush, turned and flipped the same way.", key: "Alt + LMB", ev: "alt_pick", need: 1, count: 0, done: false }
+         ]
++    },
++    {
++        title: "Planes and depth", medal: "Surveyor",
++        steps: [
++            { id: "plane_xy",   text: "Look at the floor",  how: "Orbit until you look down on the grid. The box top-left says Plane: XY - tiles now lie flat.", key: "Alt + MMB drag", ev: "plane_xy", need: 1, count: 0, done: false },
++            { id: "depth_q",    text: "Lift the plane",      how: "Press Q a couple of times. The plane you paint on moves up, away from the grid.", key: "Q", ev: "depth_q", need: 2, count: 0, done: false },
++            { id: "depth_e",    text: "Lower it again",      how: "Press E to bring the plane back toward you.", key: "E", ev: "depth_e", need: 2, count: 0, done: false },
++            { id: "depth_w",    text: "Reset the depth",     how: "Press W to put the plane straight back to zero.", key: "W", ev: "depth_reset", need: 1, count: 0, done: false },
++            { id: "match",      text: "Match a tile's depth", how: "Point at one of your tiles and tap Shift (or Tab) on its own. The plane jumps to that tile's height.", key: "Shift or Tab (tap)", ev: "depth_match", need: 1, count: 0, done: false },
++            { id: "plane_wall", text: "Face a wall",         how: "Orbit round to look from the side until the box says Plane: XZ or YZ. Now tiles stand upright.", key: "Alt + MMB drag", ev: "plane_wall", need: 1, count: 0, done: false },
++            { id: "edge",       text: "Snap to an edge",     how: "Point near the edge of a floor tile and tap Shift or Tab. The wall plane lines up with that edge.", key: "Shift or Tab (tap)", ev: "depth_edge", need: 1, count: 0, done: false },
++            { id: "wall",       text: "Build a wall",        how: "Click to place an upright tile along that edge.", key: "LMB", ev: "place_wall", need: 1, count: 0, done: false }
++        ]
++    },
++    {
++        title: "Decals and nudging", medal: "Detailer",
++        steps: [
++            { id: "decal_up",   text: "Float a decal",       how: "Press the full stop twice. Your next tile will hover a little in front of the plane.", key: ".", ev: "decal_fwd", need: 2, count: 0, done: false },
++            { id: "decal_put",  text: "Place the decal",     how: "Click over an existing tile to lay the decal on top of it.", key: "LMB", ev: "place_decal", need: 1, count: 0, done: false },
++            { id: "decal_down", text: "Push it back",        how: "Press the comma to move the decal offset back the other way.", key: ",", ev: "decal_back", need: 1, count: 0, done: false },
++            { id: "decal_zero", text: "Back to flat",        how: "Press 0 to reset the decal offset.", key: "0", ev: "decal_reset", need: 1, count: 0, done: false },
++            { id: "nudge",      text: "Nudge the brush",     how: "Tap the arrow keys to shift the brush one texture pixel at a time.", key: "Arrow keys", ev: "nudge", need: 3, count: 0, done: false },
++            { id: "nudge_fast", text: "Nudge faster",        how: "Hold Shift and tap an arrow to move four pixels at a time.", key: "Shift + arrows", ev: "nudge_fast", need: 2, count: 0, done: false },
++            { id: "nudge_off",  text: "Reset the nudge",     how: "Press N to snap the brush back onto the grid.", key: "N", ev: "nudge_reset", need: 1, count: 0, done: false }
++        ]
++    },
++    {
++        title: "Clusters", medal: "Copy Master",
++        steps: [
++            { id: "select",   text: "Select some tiles",     how: "Hold Ctrl and Shift, then drag a box around a few of your tiles. They light up yellow.", key: "Ctrl + Shift + drag", ev: "select", need: 1, count: 0, done: false },
++            { id: "copy",     text: "Copy them",             how: "Press Ctrl+C. The group becomes a cluster in the strip down the left.", key: "Ctrl + C", ev: "copy", need: 1, count: 0, done: false },
++            { id: "paste",    text: "Place the cluster",     how: "Click somewhere empty to stamp the whole cluster.", key: "LMB", ev: "paste", need: 1, count: 0, done: false },
++            { id: "c_turn",   text: "Turn the cluster",      how: "Press R to turn the held cluster a quarter turn, then click to place it again if you like.", key: "R", ev: "cluster_turn", need: 1, count: 0, done: false },
++            { id: "c_mirror", text: "Mirror the cluster",    how: "Press X to mirror it.", key: "X", ev: "cluster_mirror", need: 1, count: 0, done: false },
++            { id: "c_drop",   text: "Put it down",           how: "Press Esc to go back to single tiles.", key: "Esc", ev: "cluster_drop", need: 1, count: 0, done: false },
++            { id: "c_strip",  text: "Pick it up again",      how: "Click the cluster's picture in the strip on the left to hold it again.", key: "LMB on strip", ev: "strip_pick", need: 1, count: 0, done: false }
++        ]
++    },
++    {
++        title: "Seeing clearly", medal: "Sharp Eye",
++        steps: [
++            { id: "v_grid", text: "Grid off and on",       how: "Press G twice: once to hide the grid, once to bring it back.", key: "G", ev: "grid_toggle", need: 2, count: 0, done: false },
++            { id: "v_cull", text: "Backface culling",      how: "Press B twice. With culling on, the back of every tile is hidden.", key: "B", ev: "cull_toggle", need: 2, count: 0, done: false },
++            { id: "v_wire", text: "Wireframe",             how: "Press F twice. Wireframe outlines every tile - magenta ones have no graphic and are invisible.", key: "F", ev: "wire_toggle", need: 2, count: 0, done: false },
++            { id: "v_filt", text: "Texture filter",        how: "Press T twice to see tiles smoothed, then crisp pixels again.", key: "T", ev: "filter_toggle", need: 2, count: 0, done: false }
++        ]
++    },
++    {
++        title: "Pixel editor", medal: "Pixel Painter",
++        steps: [
++            { id: "pe_open",   text: "Open the pixel editor", how: "Press P. Your whole tileset opens as one image you can paint on.", key: "P", ev: "pe_open", need: 1, count: 0, done: false },
++            { id: "pe_paint",  text: "Paint",                 how: "With the pencil (B), click or drag on the sheet with the left button.", key: "B, then LMB", ev: "pe_paint", need: 1, count: 0, done: false },
++            { id: "pe_erase",  text: "Erase",                 how: "Right-click paints the second colour, which starts fully transparent - so it erases.", key: "RMB", ev: "pe_erase", need: 1, count: 0, done: false },
++            { id: "pe_pick",   text: "Pick a colour",         how: "Hold Alt and click a pixel to take its colour.", key: "Alt + LMB", ev: "pe_pick", need: 1, count: 0, done: false },
++            { id: "pe_fill",   text: "Fill an area",          how: "Press G for the fill tool, then click inside an area.", key: "G, then LMB", ev: "pe_fill", need: 1, count: 0, done: false },
++            { id: "pe_select", text: "Select a patch",        how: "Press M for select, then drag a box on the sheet.", key: "M, then drag", ev: "pe_select", need: 1, count: 0, done: false },
++            { id: "pe_move",   text: "Move it",               how: "Drag from inside the box to lift those pixels and move them.", key: "Drag inside", ev: "pe_move", need: 1, count: 0, done: false },
++            { id: "pe_apply",  text: "Apply to the tiles",    how: "Press Enter. Every placed tile updates to your new art.", key: "Enter", ev: "pe_apply", need: 1, count: 0, done: false },
++            { id: "pe_close",  text: "Back to 3D",            how: "Press P to close the editor and see the change in the scene.", key: "P", ev: "pe_close", need: 1, count: 0, done: false }
++        ]
++    },
++    {
++        title: "Looks", medal: "Showrunner",
++        steps: [
++            { id: "crt",       text: "Turn on the CRT",       how: "Press F6 for the CRT monitor effect.", key: "F6", ev: "crt_toggle", need: 1, count: 0, done: false },
++            { id: "fx_panel",  text: "Open its controls",     how: "Press F7 to open the Post FX panel.", key: "F7", ev: "fx_panel", need: 1, count: 0, done: false },
++            { id: "fx_slide",  text: "Play with the sliders", how: "Drag a couple of the sliders and watch the picture change.", key: "LMB drag", ev: "fx_slider", need: 2, count: 0, done: false },
++            { id: "fx_reset",  text: "Back to defaults",      how: "Click Reset defaults in the panel (or Post FX > Reset to defaults).", key: "Reset defaults", ev: "fx_reset", need: 1, count: 0, done: false }
++        ]
++    },
++    {
++        title: "Keeping your work", medal: "Archivist",
++        steps: [
++            { id: "save",      text: "Save the scene",        how: "Press Ctrl+S and give this practice scene a name. The tileset and your clusters are saved inside it.", key: "Ctrl + S", ev: "save_scene", need: 1, count: 0, done: false },
++            { id: "reload",    text: "Open it again",         how: "Open the File menu and pick it from the recent list near the top (or press Ctrl+L).", key: "File > recent", ev: "scene_loaded", need: 1, count: 0, done: false },
++            { id: "file_menu", text: "Find Export",           how: "Open the File menu: Export OBJ (Alt+Shift+S) takes your scene into Blender or any 3D tool.", key: "File menu", ev: "menu_file", need: 1, count: 0, done: false }
++        ]
+     }
+ ];
+ 
+diff --git a/objects/obj_editor/Draw_64.gml b/objects/obj_editor/Draw_64.gml
+index 8a50adf..ead2119 100644
+--- a/objects/obj_editor/Draw_64.gml
++++ b/objects/obj_editor/Draw_64.gml
+@@ -14,6 +14,7 @@ if (pe_open)
+     about_banner_draw();
+     about_draw();
+     demo_draw();
++    tut_draw();
+     shortcuts_draw();
+     menu_draw();
+     exit;
+diff --git a/objects/obj_editor/Step_0.gml b/objects/obj_editor/Step_0.gml
+index 85d9fd7..ff07488 100644
+--- a/objects/obj_editor/Step_0.gml
++++ b/objects/obj_editor/Step_0.gml
+@@ -208,6 +208,12 @@ if (_new_w > 0)
+ // --- PIXEL EDITOR (takes over all input while open) ---
+ if (pe_open)
+ {
++    // Tour card sits over the canvas: it gets first go at the mouse
++    tut_update();
++    if (tut_mouse_over)
++    {
++        menu_blocks_mouse = true;
++    }
+     pe_step();
+     exit;
+ }
+@@ -242,6 +248,10 @@ if (keyboard_check_pressed(vk_escape) && !menu_esc_consumed)
+ {
+     if (clip_held >= 0 || sel_dragging || array_length(sel_keys) > 0)
+     {
++        if (clip_held >= 0)
++        {
++            tut_event("cluster_drop");
++        }
+         clip_held = -1;
+         sel_keys = [];
+         sel_dragging = false;
+@@ -466,16 +476,19 @@ cam_dist = clamp(cam_dist, 2, 100);
+ 
+ // --- TILE TEXTURE FILTER TOGGLE (only affects placed tiles + ghost; see Draw) ---
+ if (keyboard_check_pressed(ord("T")) || menu_action == "tex_filter") {
++    tut_event("filter_toggle");
+     tex_filter_on = !tex_filter_on;
+ }
+ 
+ // --- BACKFACE CULLING TOGGLE ---
+ if (keyboard_check_pressed(ord("B")) || menu_action == "cull") {
++    tut_event("cull_toggle");
+     cull_on = !cull_on;
+ }
+ 
+ // --- WIREFRAME OVERLAY (F) ---
+ if ((keyboard_check_pressed(ord("F")) && !keyboard_check(vk_control)) || menu_action == "wireframe") {
++    tut_event("wire_toggle");
+     wire_on = !wire_on;
+ }
+ // Which frames are fully transparent: the wireframe, the placement guard
+@@ -484,6 +497,7 @@ wire_refresh_empty();
+ 
+ // --- GRID TOGGLE ---
+ if (keyboard_check_pressed(ord("G")) || menu_action == "grid") {
++    tut_event("grid_toggle");
+     grid_visible = !grid_visible;
+ }
+ 
+@@ -543,11 +557,13 @@ if (_do_save_as) {
+         scene_path = _path;
+         scene_save(scene_path);
+         recent_add(scene_path);
++        tut_event("save_scene");
+     }
+ }
+ else if (_do_save) {
+     scene_save(scene_path);
+     recent_add(scene_path);
++    tut_event("save_scene");
+ }
+ 
+ // Ctrl+L = Load
+@@ -557,6 +573,7 @@ if ((_ctrl && keyboard_check_pressed(ord("L"))) || menu_action == "scene_load")
+         if (scene_load(_path)) {
+             scene_path = _path;
+             recent_add(scene_path);
++            tut_event("scene_loaded");
+         }
+     }
+ }
+@@ -585,6 +602,7 @@ if (_recent_pick >= 0 && _recent_pick < array_length(global.recent_scenes)) {
+     else if (scene_load(_rpath)) {
+         scene_path = _rpath;
+         recent_add(scene_path);
++        tut_event("scene_loaded");
+         tile_msg = "Loaded " + filename_name(_rpath);
+         tile_msg_timer = room_speed * 3;
+     }
+@@ -690,12 +708,19 @@ if (menu_action == "decal_fwd") {
+ if (menu_action == "decal_back") {
+     _decal_step = 1;
+ }
++if (_decal_step < 0) {
++    tut_event("decal_fwd");
++}
++if (_decal_step > 0) {
++    tut_event("decal_back");
++}
+ if (_decal_step != 0) {
+     grid_offset += _decal_step;
+     grid_offset = clamp(grid_offset, -grid_offset_max, grid_offset_max);
+ }
+ 
+ if (keyboard_check_pressed(ord("0")) || menu_action == "decal_reset") {
++    tut_event("decal_reset");
+     grid_offset = 0;
+ }
+ 
+@@ -847,6 +872,14 @@ if (_abs_z >= _abs_x && _abs_z >= _abs_y) {
+     active_plane = "YZ";
+ }
+ 
++// Tour: which way the plane faces now
++if (active_plane == "XY") {
++    tut_event("plane_xy");
++}
++else {
++    tut_event("plane_wall");
++}
++
+ // --- WASD PLANE OFFSET CONTROLS ---
+ var _active_offset = plane_offset_XY;
+ if (active_plane == "XZ") { _active_offset = plane_offset_XZ; }
+@@ -866,9 +899,11 @@ if (active_plane == "YZ") { _away = sign(_dir_x); }
+ if (_away == 0) { _away = 1; }
+ 
+ if (keyboard_check_pressed(ord("Q")) || menu_action == "depth_in") {
++    tut_event("depth_q");
+     _active_offset.depth += _away;
+ }
+ if (keyboard_check_pressed(ord("E")) || menu_action == "depth_out") {
++    tut_event("depth_e");
+     _active_offset.depth -= _away;
+ }
+ 
+@@ -876,6 +911,7 @@ if (keyboard_check_pressed(ord("E")) || menu_action == "depth_out") {
+ var _no_mod = (!keyboard_check(vk_shift) && !keyboard_check(vk_alt) && !keyboard_check(vk_control));
+ 
+ if ((_no_mod && keyboard_check_pressed(ord("W"))) || menu_action == "depth_reset") {
++    tut_event("depth_reset");
+     _active_offset.depth = 0;
+ }
+ 
+@@ -1015,6 +1051,12 @@ if (_shift_tap) {
+         }
+ 
+         _active_offset.depth = _match_depth;
++        if (_match_edge) {
++            tut_event("depth_edge");
++        }
++        else {
++            tut_event("depth_match");
++        }
+         if (_match_edge) {
+             tile_msg = "Depth snapped to edge: " + string(_match_depth) + " (" + active_plane + ")";
+         }
+@@ -1155,6 +1197,7 @@ if (sel_dragging) {
+         sel_keys = clip_select_rect(sel_x0, sel_y0, sel_x1, sel_y1);
+ 
+         if (array_length(sel_keys) > 0) {
++            tut_event("select");
+             tile_msg = string(array_length(sel_keys)) + " tiles selected - Ctrl+C to copy";
+         }
+         else {
+@@ -1181,6 +1224,7 @@ if (clip_capture_pending) {
+         clip_capture_keys = [];
+ 
+         if (_grabbed > 0) {
++            tut_event("copy");
+             tile_msg = "Copied " + string(_grabbed) + " tiles - click to place, Esc to put it down";
+         }
+         else {
+@@ -1212,6 +1256,7 @@ if (mouse_check_button_pressed(mb_left) && !keyboard_check(vk_alt) && !_sel_mod
+         // A held cluster stamps once per click, centred on the ghost cell
+         undo_push_snapshot();
+         var _pasted = clip_paste(clip_held, ghost_x, ghost_y, ghost_z);
++        tut_event("paste");
+         tile_msg = "Placed " + string(_pasted.written) + " tiles";
+         if (_pasted.skipped > 0) {
+             tile_msg += " - left out " + string(_pasted.skipped) + " with no graphic";
+@@ -1345,6 +1390,12 @@ if (paint_active && _place_key != paint_last_key) {
+     }
+ 
+     if (_stamp_written > 0) {
++        if (active_plane != "XY") {
++            tut_event("place_wall");
++        }
++        if (grid_offset != 0) {
++            tut_event("place_decal");
++        }
+         if (_first_stamp) {
+             tut_event("place");
+         }
+@@ -1433,6 +1484,7 @@ if (_erase_now) {
+ // tile on the grid. Otherwise R is the brush rotate below.
+ if (keyboard_check_pressed(ord("R")) && !_ctrl && clip_held >= 0) {
+     clip_turn(clip_held);
++    tut_event("cluster_turn");
+     tile_msg = "Cluster turned 90" + chr(176);
+     tile_msg_timer = room_speed * 2;
+ }
+@@ -1463,6 +1515,7 @@ else if (keyboard_check_pressed(ord("R")) || menu_action == "rotate") {
+ // Otherwise X flips a single tile's texture, as below.
+ if (keyboard_check_pressed(ord("X")) && clip_held >= 0) {
+     clip_mirror_on_screen(clip_held);
++    tut_event("cluster_mirror");
+     tile_msg = "Cluster mirrored";
+     tile_msg_timer = room_speed * 2;
+ }
+diff --git a/scripts/ABOUT_system/ABOUT_system.gml b/scripts/ABOUT_system/ABOUT_system.gml
+index 7e53c55..69f06f8 100644
+--- a/scripts/ABOUT_system/ABOUT_system.gml
++++ b/scripts/ABOUT_system/ABOUT_system.gml
+@@ -850,7 +850,9 @@ function tut_totals()
+ function tut_rank()
+ {
+     var _names = ["Trainee", "Builder", "Architect", "Master builder", "Pixel Wizard"];
+-    var _i = min(tut_totals().chapters_done, array_length(_names) - 1);
++    var _chapters = max(1, array_length(tut_chapters));
++    var _i = floor(tut_totals().chapters_done * (array_length(_names) - 1) / _chapters);
++    _i = clamp(_i, 0, array_length(_names) - 1);
+     return _names[_i];
+ }
+ 
+@@ -1017,12 +1019,18 @@ function tut_burst(_n)
+ 
+ /// @desc Positions of everything on the card (GUI pixels). Shared by the
+ /// Step (clicks) and Draw GUI (drawing) so they always agree.
++/// Top-right in the 3D view; bottom-left of the canvas in the pixel editor,
++/// clear of its tool and colour panels.
+ function tut_card_layout()
+ {
+     draw_set_font(font_pixeldown);
+     var _w = TUT_CARD_W;
+     var _x = display_get_gui_width() - _w - 16;
+-    var _y = menu_bar_h + 12;
++    if (pe_open)
++    {
++        _x = pe_vx0 + 12;
++    }
++    var _y = 0;   // laid out from 0, moved into place at the end
+     var _line = string_height("Ag") + 4;
+     var _inner = _w - TUT_PAD * 2;
+ 
+@@ -1088,13 +1096,33 @@ function tut_card_layout()
+     }
+ 
+     _out.h = _cy + TUT_PAD - _y;
++
++    // Move everything down to where the card really sits
++    var _top = menu_bar_h + 12;
++    if (pe_open)
++    {
++        _top = pe_vy1 - 12 - _out.h;
++    }
++    _out.y += _top;
++    _out.step_y += _top;
++    for (var _b = 0; _b < array_length(_out.btns); _b++)
++    {
++        _out.btns[_b].y += _top;
++    }
++    for (var _r = 0; _r < array_length(_out.rows); _r++)
++    {
++        _out.rows[_r].y += _top;
++    }
+     return _out;
+ }
+ 
+-/// @desc Card input, timers and sparkles. Call in the Step event (3D view)
+-/// after clip_strip_update(); it claims the mouse over the card.
++/// @desc Card input, timers and sparkles. Call in the Step event: in the 3D
++/// view after clip_strip_update(), in the pixel editor before pe_step().
++/// Claims the mouse over the card (clip_blocks_mouse, and tut_mouse_over for
++/// the pixel editor, which listens to menu_blocks_mouse instead).
+ function tut_update()
+ {
++    tut_mouse_over = false;
+     // Sparkles and the toast keep running for a moment after a finish
+     for (var _i = array_length(tut_sparks) - 1; _i >= 0; _i--)
+     {
+@@ -1138,6 +1166,7 @@ function tut_update()
+     }
+ 
+     clip_blocks_mouse = true; // the card owns the mouse, same as the clip strip
++    tut_mouse_over = true;
+ 
+     for (var _b = 0; _b < array_length(_L.btns); _b++)
+     {
+@@ -1320,7 +1349,7 @@ function tut_draw()
+             draw_text(_x + TUT_PAD, _cy + _line, string(_tot.done) + " of " + string(_tot.steps) + " steps in " + string(_mins) + ":" + _secs_txt);
+             draw_text(_x + TUT_PAD, _cy + _line * 2, "Rank: " + tut_rank());
+             draw_set_colour(make_colour_rgb(185, 190, 205));
+-            draw_text(_x + TUT_PAD, _cy + _line * 3, "More chapters are on the way.");
++            draw_text(_x + TUT_PAD, _cy + _line * 3, "That's every part of the editor covered.");
+             draw_text(_x + TUT_PAD, _cy + _line * 4, "F9 shows every shortcut, any time.");
+             tut_draw_button(_L.btns[0], true);
+         }
+diff --git a/scripts/BRUSH_system/BRUSH_system.gml b/scripts/BRUSH_system/BRUSH_system.gml
+index dee36c8..b8ed796 100644
+--- a/scripts/BRUSH_system/BRUSH_system.gml
++++ b/scripts/BRUSH_system/BRUSH_system.gml
+@@ -149,6 +149,7 @@ function brush_nudge_update()
+     if ((keyboard_check_pressed(ord("N")) && !keyboard_check(vk_control)) || menu_action == "nudge_reset")
+     {
+         brush_nudge_reset();
++        tut_event("nudge_reset");
+         return;
+     }
+ 
+@@ -201,6 +202,15 @@ function brush_nudge_update()
+         return;
+     }
+ 
++    if (_step > 1)
++    {
++        tut_event("nudge_fast");
++    }
++    else
++    {
++        tut_event("nudge");
++    }
++
+     var _basis = brush_cam_basis();
+ 
+     if (_right != 0)
+@@ -1146,6 +1156,7 @@ function clip_strip_update()
+     if (mouse_check_button_pressed(mb_left))
+     {
+         clip_held = clip_hover;
++        tut_event("strip_pick");
+         tile_msg = "Holding cluster " + string(clip_hover + 1) + " - click to place it";
+         tile_msg_timer = room_speed * 2;
+     }
+diff --git a/scripts/MENU_system/MENU_system.gml b/scripts/MENU_system/MENU_system.gml
+index 4bbc821..aa64c17 100644
+--- a/scripts/MENU_system/MENU_system.gml
++++ b/scripts/MENU_system/MENU_system.gml
+@@ -370,6 +370,15 @@ function menu_update()
+ 
+     menu_build_dropdown();
+ 
++    // Tour: the File menu is open
++    if (menu_open >= 0 && menu_open < array_length(menu_vis))
++    {
++        if (menu_defs[menu_vis[menu_open]].title == "File")
++        {
++            tut_event("menu_file");
++        }
++    }
++
+     // --- Item under the mouse ---
+     menu_item_hover = menu_find_hover_item(_mx, _my);
+ 
+diff --git a/scripts/PIXEL_editor/PIXEL_editor.gml b/scripts/PIXEL_editor/PIXEL_editor.gml
+index 81bedc0..d5aa74b 100644
+--- a/scripts/PIXEL_editor/PIXEL_editor.gml
++++ b/scripts/PIXEL_editor/PIXEL_editor.gml
+@@ -105,6 +105,8 @@ function pe_open_editor()
+     pe_layout();
+     pe_fit_view();
+     pe_notify("Editing tileset: " + string(pe_frame_count) + " tiles, " + string(pe_cell) + "px cells");
++
++    tut_event("pe_open");
+ }
+ 
+ /// @desc Draw a mark in the top-left of a small surface and see where it lands.
+@@ -186,6 +188,8 @@ function pe_close_editor()
+     pe_sel_active = false;
+     pe_stroking = false;
+     pe_open = false;
++
++    tut_event("pe_close");
+ }
+ 
+ /// @desc Slice the sheet back into frames and make it the active custom set.
+@@ -227,6 +231,8 @@ function pe_apply()
+ 
+     pe_dirty = false;
+     pe_notify("Applied to tiles");
++
++    tut_event("pe_apply");
+ }
+ 
+ /// @desc Save the sheet as a PNG. Asks for a path if none yet or _ask is true.
+@@ -1695,6 +1701,7 @@ function pe_canvas_press(_btn, _alt, _shift)
+     {
+         pe_picking = true;
+         pe_pick(_px, _py, _btn);
++        tut_event("pe_pick");
+         return;
+     }
+ 
+@@ -1702,6 +1709,14 @@ function pe_canvas_press(_btn, _alt, _shift)
+     {
+         case "pencil":
+         case "eraser":
++            if (pe_tool == "eraser" || _btn == mb_right)
++            {
++                tut_event("pe_erase");
++            }
++            else
++            {
++                tut_event("pe_paint");
++            }
+             pe_undo_push();
+             pe_begin_limits(_px, _py);
+             pe_write_spans(pe_shape_spans("line", _px, _py, _px, _py), pe_stroke_u32);
+@@ -1711,6 +1726,7 @@ function pe_canvas_press(_btn, _alt, _shift)
+             break;
+ 
+         case "fill":
++            tut_event("pe_fill");
+             pe_undo_push();
+             pe_begin_limits(_px, _py);
+             pe_flood_fill(_px, _py, pe_stroke_u32);
+@@ -1758,6 +1774,7 @@ function pe_select_press(_px, _py, _btn)
+         if (_px >= pe_float_x && _px < pe_float_x + pe_float_w && _py >= pe_float_y && _py < pe_float_y + pe_float_h)
+         {
+             pe_sel_mode = "move";
++            tut_event("pe_move");
+             pe_move_off_x = _px - pe_float_x;
+             pe_move_off_y = _py - pe_float_y;
+             return;
+@@ -1770,6 +1787,7 @@ function pe_select_press(_px, _py, _btn)
+         {
+             pe_float_lift();
+             pe_sel_mode = "move";
++            tut_event("pe_move");
+             pe_move_off_x = _px - pe_float_x;
+             pe_move_off_y = _py - pe_float_y;
+             return;
+@@ -1777,6 +1795,7 @@ function pe_select_press(_px, _py, _btn)
+     }
+ 
+     // New marquee
++    tut_event("pe_select");
+     pe_sel_mode = "marquee";
+     pe_start_x = clamp(_px, 0, pe_w - 1);
+     pe_start_y = clamp(_py, 0, pe_h - 1);
+diff --git a/scripts/POSTFX_system/POSTFX_system.gml b/scripts/POSTFX_system/POSTFX_system.gml
+index d9c5f40..5f3ac01 100644
+--- a/scripts/POSTFX_system/POSTFX_system.gml
++++ b/scripts/POSTFX_system/POSTFX_system.gml
+@@ -88,6 +88,8 @@ function postfx_uniforms()
+ function postfx_reset()
+ {
+     fx = postfx_defaults();
++
++    tut_event("fx_reset");
+ }
+ 
+ // ============================================================
+@@ -230,6 +232,7 @@ function postfx_update()
+ {
+     if (keyboard_check_pressed(vk_f6) || menu_action == "fx_crt")
+     {
++        tut_event("crt_toggle");
+         if (fx_crt_on)
+         {
+             fx_crt_on = false;
+@@ -249,6 +252,7 @@ function postfx_update()
+         else
+         {
+             fx_panel_open = true;
++            tut_event("fx_panel");
+         }
+     }
+ 
+@@ -297,6 +301,7 @@ function postfx_update()
+         {
+             fx_drag = fx_hover;
+             postfx_set_norm(fx_drag, (_mx - _x0) / max(_x1 - _x0, 1));
++            tut_event("fx_slider");
+         }
+         else if (_mx >= fx_btn_reset[0] && _mx < fx_btn_reset[2] && _my >= fx_btn_reset[1] && _my < fx_btn_reset[3])
+         {

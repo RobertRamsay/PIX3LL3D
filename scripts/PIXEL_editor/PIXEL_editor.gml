@@ -105,6 +105,8 @@ function pe_open_editor()
     pe_layout();
     pe_fit_view();
     pe_notify("Editing tileset: " + string(pe_frame_count) + " tiles, " + string(pe_cell) + "px cells");
+
+    tut_event("pe_open");
 }
 
 /// @desc Draw a mark in the top-left of a small surface and see where it lands.
@@ -186,6 +188,8 @@ function pe_close_editor()
     pe_sel_active = false;
     pe_stroking = false;
     pe_open = false;
+
+    tut_event("pe_close");
 }
 
 /// @desc Slice the sheet back into frames and make it the active custom set.
@@ -227,6 +231,8 @@ function pe_apply()
 
     pe_dirty = false;
     pe_notify("Applied to tiles");
+
+    tut_event("pe_apply");
 }
 
 /// @desc Save the sheet as a PNG. Asks for a path if none yet or _ask is true.
@@ -1695,6 +1701,7 @@ function pe_canvas_press(_btn, _alt, _shift)
     {
         pe_picking = true;
         pe_pick(_px, _py, _btn);
+        tut_event("pe_pick");
         return;
     }
 
@@ -1702,6 +1709,14 @@ function pe_canvas_press(_btn, _alt, _shift)
     {
         case "pencil":
         case "eraser":
+            if (pe_tool == "eraser" || _btn == mb_right)
+            {
+                tut_event("pe_erase");
+            }
+            else
+            {
+                tut_event("pe_paint");
+            }
             pe_undo_push();
             pe_begin_limits(_px, _py);
             pe_write_spans(pe_shape_spans("line", _px, _py, _px, _py), pe_stroke_u32);
@@ -1711,6 +1726,7 @@ function pe_canvas_press(_btn, _alt, _shift)
             break;
 
         case "fill":
+            tut_event("pe_fill");
             pe_undo_push();
             pe_begin_limits(_px, _py);
             pe_flood_fill(_px, _py, pe_stroke_u32);
@@ -1758,6 +1774,7 @@ function pe_select_press(_px, _py, _btn)
         if (_px >= pe_float_x && _px < pe_float_x + pe_float_w && _py >= pe_float_y && _py < pe_float_y + pe_float_h)
         {
             pe_sel_mode = "move";
+            tut_event("pe_move");
             pe_move_off_x = _px - pe_float_x;
             pe_move_off_y = _py - pe_float_y;
             return;
@@ -1770,6 +1787,7 @@ function pe_select_press(_px, _py, _btn)
         {
             pe_float_lift();
             pe_sel_mode = "move";
+            tut_event("pe_move");
             pe_move_off_x = _px - pe_float_x;
             pe_move_off_y = _py - pe_float_y;
             return;
@@ -1777,6 +1795,7 @@ function pe_select_press(_px, _py, _btn)
     }
 
     // New marquee
+    tut_event("pe_select");
     pe_sel_mode = "marquee";
     pe_start_x = clamp(_px, 0, pe_w - 1);
     pe_start_y = clamp(_py, 0, pe_h - 1);

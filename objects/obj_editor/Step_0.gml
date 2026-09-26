@@ -208,6 +208,12 @@ if (_new_w > 0)
 // --- PIXEL EDITOR (takes over all input while open) ---
 if (pe_open)
 {
+    // Tour card sits over the canvas: it gets first go at the mouse
+    tut_update();
+    if (tut_mouse_over)
+    {
+        menu_blocks_mouse = true;
+    }
     pe_step();
     exit;
 }
@@ -242,6 +248,10 @@ if (keyboard_check_pressed(vk_escape) && !menu_esc_consumed)
 {
     if (clip_held >= 0 || sel_dragging || array_length(sel_keys) > 0)
     {
+        if (clip_held >= 0)
+        {
+            tut_event("cluster_drop");
+        }
         clip_held = -1;
         sel_keys = [];
         sel_dragging = false;
@@ -466,16 +476,19 @@ cam_dist = clamp(cam_dist, 2, 100);
 
 // --- TILE TEXTURE FILTER TOGGLE (only affects placed tiles + ghost; see Draw) ---
 if (keyboard_check_pressed(ord("T")) || menu_action == "tex_filter") {
+    tut_event("filter_toggle");
     tex_filter_on = !tex_filter_on;
 }
 
 // --- BACKFACE CULLING TOGGLE ---
 if (keyboard_check_pressed(ord("B")) || menu_action == "cull") {
+    tut_event("cull_toggle");
     cull_on = !cull_on;
 }
 
 // --- WIREFRAME OVERLAY (F) ---
 if ((keyboard_check_pressed(ord("F")) && !keyboard_check(vk_control)) || menu_action == "wireframe") {
+    tut_event("wire_toggle");
     wire_on = !wire_on;
 }
 // Which frames are fully transparent: the wireframe, the placement guard
@@ -484,6 +497,7 @@ wire_refresh_empty();
 
 // --- GRID TOGGLE ---
 if (keyboard_check_pressed(ord("G")) || menu_action == "grid") {
+    tut_event("grid_toggle");
     grid_visible = !grid_visible;
 }
 
@@ -543,11 +557,13 @@ if (_do_save_as) {
         scene_path = _path;
         scene_save(scene_path);
         recent_add(scene_path);
+        tut_event("save_scene");
     }
 }
 else if (_do_save) {
     scene_save(scene_path);
     recent_add(scene_path);
+    tut_event("save_scene");
 }
 
 // Ctrl+L = Load
@@ -557,6 +573,7 @@ if ((_ctrl && keyboard_check_pressed(ord("L"))) || menu_action == "scene_load") 
         if (scene_load(_path)) {
             scene_path = _path;
             recent_add(scene_path);
+            tut_event("scene_loaded");
         }
     }
 }
@@ -585,6 +602,7 @@ if (_recent_pick >= 0 && _recent_pick < array_length(global.recent_scenes)) {
     else if (scene_load(_rpath)) {
         scene_path = _rpath;
         recent_add(scene_path);
+        tut_event("scene_loaded");
         tile_msg = "Loaded " + filename_name(_rpath);
         tile_msg_timer = room_speed * 3;
     }
@@ -690,12 +708,19 @@ if (menu_action == "decal_fwd") {
 if (menu_action == "decal_back") {
     _decal_step = 1;
 }
+if (_decal_step < 0) {
+    tut_event("decal_fwd");
+}
+if (_decal_step > 0) {
+    tut_event("decal_back");
+}
 if (_decal_step != 0) {
     grid_offset += _decal_step;
     grid_offset = clamp(grid_offset, -grid_offset_max, grid_offset_max);
 }
 
 if (keyboard_check_pressed(ord("0")) || menu_action == "decal_reset") {
+    tut_event("decal_reset");
     grid_offset = 0;
 }
 
@@ -847,6 +872,14 @@ if (_abs_z >= _abs_x && _abs_z >= _abs_y) {
     active_plane = "YZ";
 }
 
+// Tour: which way the plane faces now
+if (active_plane == "XY") {
+    tut_event("plane_xy");
+}
+else {
+    tut_event("plane_wall");
+}
+
 // --- WASD PLANE OFFSET CONTROLS ---
 var _active_offset = plane_offset_XY;
 if (active_plane == "XZ") { _active_offset = plane_offset_XZ; }
@@ -866,9 +899,11 @@ if (active_plane == "YZ") { _away = sign(_dir_x); }
 if (_away == 0) { _away = 1; }
 
 if (keyboard_check_pressed(ord("Q")) || menu_action == "depth_in") {
+    tut_event("depth_q");
     _active_offset.depth += _away;
 }
 if (keyboard_check_pressed(ord("E")) || menu_action == "depth_out") {
+    tut_event("depth_e");
     _active_offset.depth -= _away;
 }
 
@@ -876,6 +911,7 @@ if (keyboard_check_pressed(ord("E")) || menu_action == "depth_out") {
 var _no_mod = (!keyboard_check(vk_shift) && !keyboard_check(vk_alt) && !keyboard_check(vk_control));
 
 if ((_no_mod && keyboard_check_pressed(ord("W"))) || menu_action == "depth_reset") {
+    tut_event("depth_reset");
     _active_offset.depth = 0;
 }
 
@@ -1016,6 +1052,12 @@ if (_shift_tap) {
 
         _active_offset.depth = _match_depth;
         if (_match_edge) {
+            tut_event("depth_edge");
+        }
+        else {
+            tut_event("depth_match");
+        }
+        if (_match_edge) {
             tile_msg = "Depth snapped to edge: " + string(_match_depth) + " (" + active_plane + ")";
         }
         else {
@@ -1155,6 +1197,7 @@ if (sel_dragging) {
         sel_keys = clip_select_rect(sel_x0, sel_y0, sel_x1, sel_y1);
 
         if (array_length(sel_keys) > 0) {
+            tut_event("select");
             tile_msg = string(array_length(sel_keys)) + " tiles selected - Ctrl+C to copy";
         }
         else {
@@ -1181,6 +1224,7 @@ if (clip_capture_pending) {
         clip_capture_keys = [];
 
         if (_grabbed > 0) {
+            tut_event("copy");
             tile_msg = "Copied " + string(_grabbed) + " tiles - click to place, Esc to put it down";
         }
         else {
@@ -1212,6 +1256,7 @@ if (mouse_check_button_pressed(mb_left) && !keyboard_check(vk_alt) && !_sel_mod 
         // A held cluster stamps once per click, centred on the ghost cell
         undo_push_snapshot();
         var _pasted = clip_paste(clip_held, ghost_x, ghost_y, ghost_z);
+        tut_event("paste");
         tile_msg = "Placed " + string(_pasted.written) + " tiles";
         if (_pasted.skipped > 0) {
             tile_msg += " - left out " + string(_pasted.skipped) + " with no graphic";
@@ -1345,6 +1390,12 @@ if (paint_active && _place_key != paint_last_key) {
     }
 
     if (_stamp_written > 0) {
+        if (active_plane != "XY") {
+            tut_event("place_wall");
+        }
+        if (grid_offset != 0) {
+            tut_event("place_decal");
+        }
         if (_first_stamp) {
             tut_event("place");
         }
@@ -1433,6 +1484,7 @@ if (_erase_now) {
 // tile on the grid. Otherwise R is the brush rotate below.
 if (keyboard_check_pressed(ord("R")) && !_ctrl && clip_held >= 0) {
     clip_turn(clip_held);
+    tut_event("cluster_turn");
     tile_msg = "Cluster turned 90" + chr(176);
     tile_msg_timer = room_speed * 2;
 }
@@ -1463,6 +1515,7 @@ else if (keyboard_check_pressed(ord("R")) || menu_action == "rotate") {
 // Otherwise X flips a single tile's texture, as below.
 if (keyboard_check_pressed(ord("X")) && clip_held >= 0) {
     clip_mirror_on_screen(clip_held);
+    tut_event("cluster_mirror");
     tile_msg = "Cluster mirrored";
     tile_msg_timer = room_speed * 2;
 }

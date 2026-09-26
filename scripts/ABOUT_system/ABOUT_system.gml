@@ -850,7 +850,9 @@ function tut_totals()
 function tut_rank()
 {
     var _names = ["Trainee", "Builder", "Architect", "Master builder", "Pixel Wizard"];
-    var _i = min(tut_totals().chapters_done, array_length(_names) - 1);
+    var _chapters = max(1, array_length(tut_chapters));
+    var _i = floor(tut_totals().chapters_done * (array_length(_names) - 1) / _chapters);
+    _i = clamp(_i, 0, array_length(_names) - 1);
     return _names[_i];
 }
 
@@ -1017,12 +1019,18 @@ function tut_burst(_n)
 
 /// @desc Positions of everything on the card (GUI pixels). Shared by the
 /// Step (clicks) and Draw GUI (drawing) so they always agree.
+/// Top-right in the 3D view; bottom-left of the canvas in the pixel editor,
+/// clear of its tool and colour panels.
 function tut_card_layout()
 {
     draw_set_font(font_pixeldown);
     var _w = TUT_CARD_W;
     var _x = display_get_gui_width() - _w - 16;
-    var _y = menu_bar_h + 12;
+    if (pe_open)
+    {
+        _x = pe_vx0 + 12;
+    }
+    var _y = 0;   // laid out from 0, moved into place at the end
     var _line = string_height("Ag") + 4;
     var _inner = _w - TUT_PAD * 2;
 
@@ -1088,13 +1096,33 @@ function tut_card_layout()
     }
 
     _out.h = _cy + TUT_PAD - _y;
+
+    // Move everything down to where the card really sits
+    var _top = menu_bar_h + 12;
+    if (pe_open)
+    {
+        _top = pe_vy1 - 12 - _out.h;
+    }
+    _out.y += _top;
+    _out.step_y += _top;
+    for (var _b = 0; _b < array_length(_out.btns); _b++)
+    {
+        _out.btns[_b].y += _top;
+    }
+    for (var _r = 0; _r < array_length(_out.rows); _r++)
+    {
+        _out.rows[_r].y += _top;
+    }
     return _out;
 }
 
-/// @desc Card input, timers and sparkles. Call in the Step event (3D view)
-/// after clip_strip_update(); it claims the mouse over the card.
+/// @desc Card input, timers and sparkles. Call in the Step event: in the 3D
+/// view after clip_strip_update(), in the pixel editor before pe_step().
+/// Claims the mouse over the card (clip_blocks_mouse, and tut_mouse_over for
+/// the pixel editor, which listens to menu_blocks_mouse instead).
 function tut_update()
 {
+    tut_mouse_over = false;
     // Sparkles and the toast keep running for a moment after a finish
     for (var _i = array_length(tut_sparks) - 1; _i >= 0; _i--)
     {
@@ -1138,6 +1166,7 @@ function tut_update()
     }
 
     clip_blocks_mouse = true; // the card owns the mouse, same as the clip strip
+    tut_mouse_over = true;
 
     for (var _b = 0; _b < array_length(_L.btns); _b++)
     {
@@ -1320,7 +1349,7 @@ function tut_draw()
             draw_text(_x + TUT_PAD, _cy + _line, string(_tot.done) + " of " + string(_tot.steps) + " steps in " + string(_mins) + ":" + _secs_txt);
             draw_text(_x + TUT_PAD, _cy + _line * 2, "Rank: " + tut_rank());
             draw_set_colour(make_colour_rgb(185, 190, 205));
-            draw_text(_x + TUT_PAD, _cy + _line * 3, "More chapters are on the way.");
+            draw_text(_x + TUT_PAD, _cy + _line * 3, "That's every part of the editor covered.");
             draw_text(_x + TUT_PAD, _cy + _line * 4, "F9 shows every shortcut, any time.");
             tut_draw_button(_L.btns[0], true);
         }
