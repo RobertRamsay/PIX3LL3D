@@ -14,6 +14,7 @@ if (pe_open)
     about_banner_draw();
     about_draw();
     demo_draw();
+    shortcuts_draw();
     menu_draw();
     exit;
 }
@@ -242,6 +243,9 @@ about_draw();
 
 // --- PRO PANEL (modal, demo builds only) ---
 demo_draw();
+
+// --- SHORTCUT KEYS PANEL (modal) ---
+shortcuts_draw();
 
 // --- MENU BAR (last, so drop-downs sit over everything) ---
 menu_draw();

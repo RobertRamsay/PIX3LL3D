@@ -30,6 +30,13 @@ if (demo_visible)
     exit;
 }
 
+// --- SHORTCUT KEYS PANEL (F9 / Help menu; modal in both editors) ---
+shortcuts_update();
+if (shortcuts_open)
+{
+    exit;
+}
+
 // --- TILESET CELL SIZE (works in BOTH editors, so it sits above the pe branch) ---
 if (tile_msg_timer > 0)
 {
@@ -646,14 +653,14 @@ if (menu_action == "clean_faces") {
     tile_msg_timer = room_speed * 3;
 }
 
-// --- DECAL OFFSET (1 forward, Tab+1 back, 0 reset) ---
+// --- DECAL OFFSET (. forward, , back, 0 reset) ---
+// 190 and 188 are the full stop and comma keys (the < > keys).
 var _decal_step = 0;
-if (keyboard_check_pressed(ord("1"))) {
-    if (keyboard_check(vk_tab)) {
-        _decal_step = 1;
-    } else {
-        _decal_step = -1;
-    }
+if (keyboard_check_pressed(190)) {
+    _decal_step = -1;   // toward the camera
+}
+if (keyboard_check_pressed(188)) {
+    _decal_step = 1;    // away from the camera
 }
 if (menu_action == "decal_fwd") {
     _decal_step = -1;
@@ -886,6 +893,7 @@ var _ray_z = _ghost_fwd_z + (_ghost_right_z * _mx_ndc * _ghost_aspect + _ghost_u
 //    tile's two edges lying on the active plane is nearer the cursor, so the
 //    next tile meets it at a clean 90 degree corner.
 // Shift+arrows, Ctrl+Shift+S and so on never count as a tap.
+// Tab tapped on its own does exactly the same.
 var _shift_tap = false;
 if (keyboard_check_pressed(vk_shift)) {
     shift_tap_armed = true;
@@ -906,6 +914,28 @@ if (keyboard_check_released(vk_shift)) {
         _shift_tap = true;
     }
     shift_tap_armed = false;
+}
+
+// Tab, same rules (Alt+Tab to switch windows never counts)
+if (keyboard_check_pressed(vk_tab)) {
+    tab_tap_armed = true;
+    if (keyboard_check(vk_control) || keyboard_check(vk_alt)) {
+        tab_tap_armed = false;
+    }
+}
+else if (keyboard_check(vk_tab)) {
+    if (keyboard_check_pressed(vk_anykey) || mouse_check_button_pressed(mb_any)) {
+        tab_tap_armed = false;
+    }
+    if (mouse_wheel_up() || mouse_wheel_down()) {
+        tab_tap_armed = false;
+    }
+}
+if (keyboard_check_released(vk_tab)) {
+    if (tab_tap_armed && !palette_open && !menu_blocks_mouse && !clip_blocks_mouse) {
+        _shift_tap = true;
+    }
+    tab_tap_armed = false;
 }
 
 if (_shift_tap) {

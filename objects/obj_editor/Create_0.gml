@@ -219,6 +219,7 @@ nudge_max = 64;          // limit either way, in texels (4 tiles at a 16px cell)
 
 // --- SHIFT TAP (match depth to the tile under the cursor) ---
 shift_tap_armed = false; // true while Shift is held with nothing else pressed
+tab_tap_armed = false;   // true while Tab is held with nothing else pressed (acts like Shift)
 
 // --- PLANE OFFSETS ---
 plane_offset_XY = { left_right: 0, up_down: 0, depth: 0 };
@@ -372,8 +373,8 @@ menu_defs = [
             { label: "Depth out",      key: "E",     act: "depth_out",   mode: "3d" },
             { label: "Reset depth",    key: "W",     act: "depth_reset", mode: "3d" },
             { label: "-",              key: "",      act: "",            mode: "3d" },
-            { label: "Decal forward",  key: "1",     act: "decal_fwd",   mode: "3d" },
-            { label: "Decal back",     key: "Tab+1", act: "decal_back",  mode: "3d" },
+            { label: "Decal forward",  key: ".",     act: "decal_fwd",   mode: "3d" },
+            { label: "Decal back",     key: ",",     act: "decal_back",  mode: "3d" },
             { label: "Reset decal",    key: "0",     act: "decal_reset", mode: "3d" },
             { label: "-",              key: "",      act: "",            mode: "3d" },
             { label: "Nudge left",     key: "Left",  act: "nudge_left",  mode: "3d" },
@@ -455,6 +456,8 @@ menu_defs = [
     {
         title: "Help", mode: "all",
         items: [
+            { label: "Shortcut keys...", key: "F9",           act: "shortcuts", mode: "all" },
+            { label: "-",               key: "",             act: "",       mode: "all" },
             { label: "Place / replace", key: "LMB",          act: "", mode: "3d" },
             { label: "Remove",          key: "RMB / Del",    act: "", mode: "3d" },
             { label: "Tile palette",    key: "Space (hold)", act: "", mode: "3d" },
@@ -465,7 +468,7 @@ menu_defs = [
             { label: "Nudge brush 1px",  key: "Arrow keys",      act: "", mode: "3d" },
             { label: "Nudge brush 4px",  key: "Shift+arrows",    act: "", mode: "3d" },
             { label: "Paint primary",   key: "LMB",              act: "", mode: "pe" },
-            { label: "Paint secondary", key: "RMB",              act: "", mode: "pe" },
+            { label: "Paint secondary / erase", key: "RMB",              act: "", mode: "pe" },
             { label: "Eyedropper",      key: "Alt (hold)",       act: "", mode: "pe" },
             { label: "Pan",             key: "MMB / Space+drag", act: "", mode: "pe" },
             { label: "Zoom",            key: "Wheel",            act: "", mode: "pe" },
@@ -483,6 +486,113 @@ menu_defs = [
             { label: "Version " + global.app_version, key: "", act: "",            mode: "all" },
             { label: "-",                          key: "",    act: "",            mode: "all" },
             { label: ABOUT_APP_NAME + " on itch.io", key: "",  act: "about_itch",  mode: "all" }
+        ]
+    }
+];
+
+// --- SHORTCUT KEYS PANEL (F9 / Help > Shortcut keys; see MENU_system) ---
+// Every key and mouse combination, in one place. Keep this in step with the
+// code when a shortcut changes - it is what users read.
+shortcuts_open = false;
+shortcut_sections = [
+    {
+        title: "3D VIEW",
+        groups: [
+            { title: "Placing", rows: [
+                ["LMB",              "Place / replace tile (hold and drag to paint)"],
+                ["RMB",              "Remove brush footprint (hold and drag to erase)"],
+                ["Del / Backspace",  "Remove the tile under the cursor"],
+                ["Space (hold)",     "Tile palette - click or drag to pick tiles"],
+                ["Alt+LMB",          "Pick up the tile under the cursor"],
+                ["R",                "Rotate brush"],
+                ["Ctrl+R",           "Rotate the placed tile under the cursor"],
+                ["X",                "Flip H - tile under cursor, else brush"],
+                ["Y",                "Flip V - tile under cursor, else brush"]
+            ]},
+            { title: "Depth and position", rows: [
+                ["Q / E",            "Depth in / out"],
+                ["W",                "Reset depth"],
+                ["Shift or Tab (tap)", "Match depth to the tile under the cursor"],
+                [". / ,",            "Decal forward / back"],
+                ["0",                "Reset decal"],
+                ["Arrow keys",       "Nudge brush 1 pixel"],
+                ["Shift+arrows",     "Nudge brush 4 pixels"],
+                ["N",                "Reset nudge"]
+            ]},
+            { title: "Clusters", rows: [
+                ["Ctrl+Shift+drag",  "Select tiles"],
+                ["Ctrl+C",           "Copy the selection as a cluster"],
+                ["LMB",              "Place the held cluster"],
+                ["R / X",            "Turn / mirror the held cluster"],
+                ["Esc",              "Put the cluster down / clear selection"],
+                ["Strip LMB / RMB",  "Hold / remove a stored cluster"]
+            ]},
+            { title: "View", rows: [
+                ["MMB drag",         "Pan"],
+                ["Alt+MMB drag",     "Orbit"],
+                ["Wheel",            "Zoom"],
+                ["Home",             "Reset view"],
+                ["G",                "Grid"],
+                ["T",                "Tile texture filter"],
+                ["B",                "Backface culling"],
+                ["F",                "Wireframe"],
+                ["F6 / F7",          "CRT effect / Post FX controls"],
+                ["F10",              "Fullscreen / windowed"]
+            ]},
+            { title: "File and tiles", rows: [
+                ["Ctrl+S",           "Save scene"],
+                ["Ctrl+Shift+S",     "Save scene as"],
+                ["Ctrl+L",           "Load scene"],
+                ["Alt+Shift+S",      "Export OBJ"],
+                ["Ctrl+Z / Ctrl+Y",  "Undo / redo"],
+                ["Ctrl+I",           "Import tileset PNG"],
+                ["F1 / F2",          "Built-in / custom tileset"],
+                ["P",                "Pixel editor"],
+                ["F9 / F12",         "Shortcut keys / credits"],
+                ["Enter / Esc",      "Restart / quit"]
+            ]}
+        ]
+    },
+    {
+        title: "PIXEL EDITOR",
+        groups: [
+            { title: "Tools", rows: [
+                ["B",                "Pencil"],
+                ["E",                "Eraser"],
+                ["G / Shift+G",      "Fill / replace colour"],
+                ["L",                "Line"],
+                ["U / Shift+U",      "Rectangle / filled"],
+                ["O / Shift+O",      "Ellipse / filled"],
+                ["I or Alt (hold)",  "Eyedropper"],
+                ["M",                "Select"]
+            ]},
+            { title: "Painting", rows: [
+                ["LMB",              "Paint primary colour"],
+                ["RMB",              "Paint secondary (transparent = erase)"],
+                ["X",                "Swap colours"],
+                ["[ / ]",            "Brush smaller / larger"],
+                ["K",                "Clip painting to one tile"]
+            ]},
+            { title: "Selection", rows: [
+                ["Ctrl+A / Ctrl+D",  "Select all / deselect"],
+                ["Ctrl+C / X / V",   "Copy / cut / paste"],
+                ["Del",              "Delete selection"],
+                ["H / V",            "Flip selection or tile H / V"],
+                ["Esc",              "Commit / clear selection, then close"]
+            ]},
+            { title: "View", rows: [
+                ["Wheel or = / -",   "Zoom"],
+                ["MMB or Space+drag", "Pan"],
+                ["Home",             "Fit sheet"],
+                ["Ctrl+G / Ctrl+T",  "Pixel grid / tile grid"]
+            ]},
+            { title: "File", rows: [
+                ["Ctrl+S",           "Save texture PNG"],
+                ["Ctrl+Shift+S",     "Save texture PNG as"],
+                ["Enter",            "Apply to tiles"],
+                ["Ctrl+Z / Ctrl+Y",  "Undo / redo"],
+                ["P",                "Close pixel editor"]
+            ]}
         ]
     }
 ];
@@ -574,7 +684,7 @@ pe_lim_y1 = 0;
 pe_col = c_white;
 pe_alpha = 255;
 pe_col2 = c_black;
-pe_alpha2 = 255;
+pe_alpha2 = 0;              // secondary starts fully transparent, so RMB erases
 pe_hue = 0;
 pe_sat = 0;
 pe_val = 255;

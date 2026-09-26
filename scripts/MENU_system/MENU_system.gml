@@ -698,3 +698,156 @@ function menu_draw()
     draw_set_alpha(1);
     gpu_set_tex_filter(tex_filter_on);
 }
+
+// ============================================================
+//  SHORTCUT KEYS PANEL (F9 / Help > Shortcut keys)
+// ============================================================
+// Modal, in both editors. The list itself lives in the Create event
+// (shortcut_sections) so it is easy to keep in step with the code.
+
+/// @desc Open / close handling. Call in the Step event before anything that
+/// reads the keyboard or mouse; the caller exits the Step while it is open.
+function shortcuts_update()
+{
+    if (keyboard_check_pressed(vk_f9) || menu_action == "shortcuts")
+    {
+        shortcuts_open = !shortcuts_open;
+        return;
+    }
+
+    if (!shortcuts_open)
+    {
+        return;
+    }
+
+    if (keyboard_check_pressed(vk_escape))
+    {
+        shortcuts_open = false;
+        menu_esc_consumed = true;
+        return;
+    }
+
+    // A click anywhere that isn't the menu bar closes it
+    if (!menu_blocks_mouse)
+    {
+        if (mouse_check_button_pressed(mb_left) || mouse_check_button_pressed(mb_right))
+        {
+            shortcuts_open = false;
+        }
+    }
+}
+
+/// @desc Draw the panel. Call from Draw GUI (both editors), before menu_draw.
+function shortcuts_draw()
+{
+    if (!shortcuts_open)
+    {
+        return;
+    }
+
+    var _gw = display_get_gui_width();
+    var _gh = display_get_gui_height();
+
+    gpu_set_cullmode(cull_noculling);
+    gpu_set_tex_filter(true);
+    draw_set_font(font_pixeldown);
+    draw_set_halign(fa_left);
+    draw_set_valign(fa_top);
+
+    // Dim what's behind
+    draw_set_alpha(0.6);
+    draw_set_colour(c_black);
+    draw_rectangle(0, 0, _gw, _gh, false);
+    draw_set_alpha(1);
+
+    var _x1 = 40;
+    var _y1 = menu_bar_h + 24;
+    var _x2 = _gw - 40;
+    var _y2 = _gh - 30;
+
+    draw_set_colour(make_colour_rgb(30, 32, 42));
+    draw_rectangle(_x1, _y1, _x2, _y2, false);
+    draw_set_colour(make_colour_rgb(80, 84, 100));
+    draw_rectangle(_x1, _y1, _x2, _y2, true);
+
+    var _line = string_height("Ag") + 4;
+    var _pad = 22;
+
+    // Title
+    draw_set_colour(c_white);
+    draw_text(_x1 + _pad, _y1 + 14, "SHORTCUT KEYS");
+    draw_set_colour(make_colour_rgb(150, 155, 175));
+    var _hint = "F9, Esc or click to close";
+    draw_text(_x2 - _pad - string_width(_hint), _y1 + 14, _hint);
+
+    // Key column width: the widest key text anywhere
+    var _key_w = 0;
+    for (var _s = 0; _s < array_length(shortcut_sections); _s++)
+    {
+        var _groups = shortcut_sections[_s].groups;
+        for (var _g = 0; _g < array_length(_groups); _g++)
+        {
+            var _rows = _groups[_g].rows;
+            for (var _r = 0; _r < array_length(_rows); _r++)
+            {
+                _key_w = max(_key_w, string_width(_rows[_r][0]));
+            }
+        }
+    }
+    _key_w += 18;
+
+    // Flow the groups into columns; each section starts a fresh column
+    var _cols = 4;
+    var _col_w = floor((_x2 - _x1 - _pad * 2) / _cols);
+    var _top = _y1 + 14 + _line * 2;
+    var _bottom = _y2 - _pad;
+    var _col = 0;
+    var _cy = _top;
+
+    for (var _s = 0; _s < array_length(shortcut_sections); _s++)
+    {
+        var _sec = shortcut_sections[_s];
+
+        // New section: new column (unless we're still at the top of one)
+        if (_cy > _top)
+        {
+            _col += 1;
+            _cy = _top;
+        }
+
+        var _cx = _x1 + _pad + _col * _col_w;
+        draw_set_colour(make_colour_rgb(255, 210, 90));
+        draw_text(_cx, _cy, _sec.title);
+        _cy += _line + 6;
+
+        for (var _g = 0; _g < array_length(_sec.groups); _g++)
+        {
+            var _grp = _sec.groups[_g];
+            var _need = _line * (array_length(_grp.rows) + 1) + 10;
+
+            // Doesn't fit: next column
+            if (_cy + _need > _bottom && _cy > _top)
+            {
+                _col += 1;
+                _cy = _top;
+                _cx = _x1 + _pad + _col * _col_w;
+            }
+
+            draw_set_colour(make_colour_rgb(120, 170, 255));
+            draw_text(_cx, _cy, _grp.title);
+            _cy += _line;
+
+            for (var _r = 0; _r < array_length(_grp.rows); _r++)
+            {
+                draw_set_colour(c_white);
+                draw_text(_cx + 8, _cy, _grp.rows[_r][0]);
+                draw_set_colour(make_colour_rgb(185, 190, 205));
+                draw_text(_cx + 8 + _key_w, _cy, _grp.rows[_r][1]);
+                _cy += _line;
+            }
+            _cy += 10;
+        }
+    }
+
+    draw_set_colour(c_white);
+}

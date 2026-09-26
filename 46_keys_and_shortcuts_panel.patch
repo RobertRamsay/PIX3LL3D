@@ -1,0 +1,424 @@
+diff --git a/objects/obj_editor/Create_0.gml b/objects/obj_editor/Create_0.gml
+index 8c650c8..3e8f511 100644
+--- a/objects/obj_editor/Create_0.gml
++++ b/objects/obj_editor/Create_0.gml
+@@ -219,6 +219,7 @@ nudge_max = 64;          // limit either way, in texels (4 tiles at a 16px cell)
+ 
+ // --- SHIFT TAP (match depth to the tile under the cursor) ---
+ shift_tap_armed = false; // true while Shift is held with nothing else pressed
++tab_tap_armed = false;   // true while Tab is held with nothing else pressed (acts like Shift)
+ 
+ // --- PLANE OFFSETS ---
+ plane_offset_XY = { left_right: 0, up_down: 0, depth: 0 };
+@@ -372,8 +373,8 @@ menu_defs = [
+             { label: "Depth out",      key: "E",     act: "depth_out",   mode: "3d" },
+             { label: "Reset depth",    key: "W",     act: "depth_reset", mode: "3d" },
+             { label: "-",              key: "",      act: "",            mode: "3d" },
+-            { label: "Decal forward",  key: "1",     act: "decal_fwd",   mode: "3d" },
+-            { label: "Decal back",     key: "Tab+1", act: "decal_back",  mode: "3d" },
++            { label: "Decal forward",  key: ".",     act: "decal_fwd",   mode: "3d" },
++            { label: "Decal back",     key: ",",     act: "decal_back",  mode: "3d" },
+             { label: "Reset decal",    key: "0",     act: "decal_reset", mode: "3d" },
+             { label: "-",              key: "",      act: "",            mode: "3d" },
+             { label: "Nudge left",     key: "Left",  act: "nudge_left",  mode: "3d" },
+@@ -455,6 +456,8 @@ menu_defs = [
+     {
+         title: "Help", mode: "all",
+         items: [
++            { label: "Shortcut keys...", key: "F9",           act: "shortcuts", mode: "all" },
++            { label: "-",               key: "",             act: "",       mode: "all" },
+             { label: "Place / replace", key: "LMB",          act: "", mode: "3d" },
+             { label: "Remove",          key: "RMB / Del",    act: "", mode: "3d" },
+             { label: "Tile palette",    key: "Space (hold)", act: "", mode: "3d" },
+@@ -465,7 +468,7 @@ menu_defs = [
+             { label: "Nudge brush 1px",  key: "Arrow keys",      act: "", mode: "3d" },
+             { label: "Nudge brush 4px",  key: "Shift+arrows",    act: "", mode: "3d" },
+             { label: "Paint primary",   key: "LMB",              act: "", mode: "pe" },
+-            { label: "Paint secondary", key: "RMB",              act: "", mode: "pe" },
++            { label: "Paint secondary / erase", key: "RMB",              act: "", mode: "pe" },
+             { label: "Eyedropper",      key: "Alt (hold)",       act: "", mode: "pe" },
+             { label: "Pan",             key: "MMB / Space+drag", act: "", mode: "pe" },
+             { label: "Zoom",            key: "Wheel",            act: "", mode: "pe" },
+@@ -487,6 +490,113 @@ menu_defs = [
+     }
+ ];
+ 
++// --- SHORTCUT KEYS PANEL (F9 / Help > Shortcut keys; see MENU_system) ---
++// Every key and mouse combination, in one place. Keep this in step with the
++// code when a shortcut changes - it is what users read.
++shortcuts_open = false;
++shortcut_sections = [
++    {
++        title: "3D VIEW",
++        groups: [
++            { title: "Placing", rows: [
++                ["LMB",              "Place / replace tile (hold and drag to paint)"],
++                ["RMB",              "Remove brush footprint (hold and drag to erase)"],
++                ["Del / Backspace",  "Remove the tile under the cursor"],
++                ["Space (hold)",     "Tile palette - click or drag to pick tiles"],
++                ["Alt+LMB",          "Pick up the tile under the cursor"],
++                ["R",                "Rotate brush"],
++                ["Ctrl+R",           "Rotate the placed tile under the cursor"],
++                ["X",                "Flip H - tile under cursor, else brush"],
++                ["Y",                "Flip V - tile under cursor, else brush"]
++            ]},
++            { title: "Depth and position", rows: [
++                ["Q / E",            "Depth in / out"],
++                ["W",                "Reset depth"],
++                ["Shift or Tab (tap)", "Match depth to the tile under the cursor"],
++                [". / ,",            "Decal forward / back"],
++                ["0",                "Reset decal"],
++                ["Arrow keys",       "Nudge brush 1 pixel"],
++                ["Shift+arrows",     "Nudge brush 4 pixels"],
++                ["N",                "Reset nudge"]
++            ]},
++            { title: "Clusters", rows: [
++                ["Ctrl+Shift+drag",  "Select tiles"],
++                ["Ctrl+C",           "Copy the selection as a cluster"],
++                ["LMB",              "Place the held cluster"],
++                ["R / X",            "Turn / mirror the held cluster"],
++                ["Esc",              "Put the cluster down / clear selection"],
++                ["Strip LMB / RMB",  "Hold / remove a stored cluster"]
++            ]},
++            { title: "View", rows: [
++                ["MMB drag",         "Pan"],
++                ["Alt+MMB drag",     "Orbit"],
++                ["Wheel",            "Zoom"],
++                ["Home",             "Reset view"],
++                ["G",                "Grid"],
++                ["T",                "Tile texture filter"],
++                ["B",                "Backface culling"],
++                ["F",                "Wireframe"],
++                ["F6 / F7",          "CRT effect / Post FX controls"],
++                ["F10",              "Fullscreen / windowed"]
++            ]},
++            { title: "File and tiles", rows: [
++                ["Ctrl+S",           "Save scene"],
++                ["Ctrl+Shift+S",     "Save scene as"],
++                ["Ctrl+L",           "Load scene"],
++                ["Alt+Shift+S",      "Export OBJ"],
++                ["Ctrl+Z / Ctrl+Y",  "Undo / redo"],
++                ["Ctrl+I",           "Import tileset PNG"],
++                ["F1 / F2",          "Built-in / custom tileset"],
++                ["P",                "Pixel editor"],
++                ["F9 / F12",         "Shortcut keys / credits"],
++                ["Enter / Esc",      "Restart / quit"]
++            ]}
++        ]
++    },
++    {
++        title: "PIXEL EDITOR",
++        groups: [
++            { title: "Tools", rows: [
++                ["B",                "Pencil"],
++                ["E",                "Eraser"],
++                ["G / Shift+G",      "Fill / replace colour"],
++                ["L",                "Line"],
++                ["U / Shift+U",      "Rectangle / filled"],
++                ["O / Shift+O",      "Ellipse / filled"],
++                ["I or Alt (hold)",  "Eyedropper"],
++                ["M",                "Select"]
++            ]},
++            { title: "Painting", rows: [
++                ["LMB",              "Paint primary colour"],
++                ["RMB",              "Paint secondary (transparent = erase)"],
++                ["X",                "Swap colours"],
++                ["[ / ]",            "Brush smaller / larger"],
++                ["K",                "Clip painting to one tile"]
++            ]},
++            { title: "Selection", rows: [
++                ["Ctrl+A / Ctrl+D",  "Select all / deselect"],
++                ["Ctrl+C / X / V",   "Copy / cut / paste"],
++                ["Del",              "Delete selection"],
++                ["H / V",            "Flip selection or tile H / V"],
++                ["Esc",              "Commit / clear selection, then close"]
++            ]},
++            { title: "View", rows: [
++                ["Wheel or = / -",   "Zoom"],
++                ["MMB or Space+drag", "Pan"],
++                ["Home",             "Fit sheet"],
++                ["Ctrl+G / Ctrl+T",  "Pixel grid / tile grid"]
++            ]},
++            { title: "File", rows: [
++                ["Ctrl+S",           "Save texture PNG"],
++                ["Ctrl+Shift+S",     "Save texture PNG as"],
++                ["Enter",            "Apply to tiles"],
++                ["Ctrl+Z / Ctrl+Y",  "Undo / redo"],
++                ["P",                "Close pixel editor"]
++            ]}
++        ]
++    }
++];
++
+ // --- RECENT SCENES (File menu) ---
+ // Keep a copy of the File menu as written above; recent_menu_sync() rebuilds
+ // the live menu from it every time the list changes.
+@@ -574,7 +684,7 @@ pe_lim_y1 = 0;
+ pe_col = c_white;
+ pe_alpha = 255;
+ pe_col2 = c_black;
+-pe_alpha2 = 255;
++pe_alpha2 = 0;              // secondary starts fully transparent, so RMB erases
+ pe_hue = 0;
+ pe_sat = 0;
+ pe_val = 255;
+diff --git a/objects/obj_editor/Draw_64.gml b/objects/obj_editor/Draw_64.gml
+index 74f3006..204750b 100644
+--- a/objects/obj_editor/Draw_64.gml
++++ b/objects/obj_editor/Draw_64.gml
+@@ -14,6 +14,7 @@ if (pe_open)
+     about_banner_draw();
+     about_draw();
+     demo_draw();
++    shortcuts_draw();
+     menu_draw();
+     exit;
+ }
+@@ -243,6 +244,9 @@ about_draw();
+ // --- PRO PANEL (modal, demo builds only) ---
+ demo_draw();
+ 
++// --- SHORTCUT KEYS PANEL (modal) ---
++shortcuts_draw();
++
+ // --- MENU BAR (last, so drop-downs sit over everything) ---
+ menu_draw();
+ 
+diff --git a/objects/obj_editor/Step_0.gml b/objects/obj_editor/Step_0.gml
+index 9ab23eb..cf3a093 100644
+--- a/objects/obj_editor/Step_0.gml
++++ b/objects/obj_editor/Step_0.gml
+@@ -30,6 +30,13 @@ if (demo_visible)
+     exit;
+ }
+ 
++// --- SHORTCUT KEYS PANEL (F9 / Help menu; modal in both editors) ---
++shortcuts_update();
++if (shortcuts_open)
++{
++    exit;
++}
++
+ // --- TILESET CELL SIZE (works in BOTH editors, so it sits above the pe branch) ---
+ if (tile_msg_timer > 0)
+ {
+@@ -646,14 +653,14 @@ if (menu_action == "clean_faces") {
+     tile_msg_timer = room_speed * 3;
+ }
+ 
+-// --- DECAL OFFSET (1 forward, Tab+1 back, 0 reset) ---
++// --- DECAL OFFSET (. forward, , back, 0 reset) ---
++// 190 and 188 are the full stop and comma keys (the < > keys).
+ var _decal_step = 0;
+-if (keyboard_check_pressed(ord("1"))) {
+-    if (keyboard_check(vk_tab)) {
+-        _decal_step = 1;
+-    } else {
+-        _decal_step = -1;
+-    }
++if (keyboard_check_pressed(190)) {
++    _decal_step = -1;   // toward the camera
++}
++if (keyboard_check_pressed(188)) {
++    _decal_step = 1;    // away from the camera
+ }
+ if (menu_action == "decal_fwd") {
+     _decal_step = -1;
+@@ -886,6 +893,7 @@ var _ray_z = _ghost_fwd_z + (_ghost_right_z * _mx_ndc * _ghost_aspect + _ghost_u
+ //    tile's two edges lying on the active plane is nearer the cursor, so the
+ //    next tile meets it at a clean 90 degree corner.
+ // Shift+arrows, Ctrl+Shift+S and so on never count as a tap.
++// Tab tapped on its own does exactly the same.
+ var _shift_tap = false;
+ if (keyboard_check_pressed(vk_shift)) {
+     shift_tap_armed = true;
+@@ -908,6 +916,28 @@ if (keyboard_check_released(vk_shift)) {
+     shift_tap_armed = false;
+ }
+ 
++// Tab, same rules (Alt+Tab to switch windows never counts)
++if (keyboard_check_pressed(vk_tab)) {
++    tab_tap_armed = true;
++    if (keyboard_check(vk_control) || keyboard_check(vk_alt)) {
++        tab_tap_armed = false;
++    }
++}
++else if (keyboard_check(vk_tab)) {
++    if (keyboard_check_pressed(vk_anykey) || mouse_check_button_pressed(mb_any)) {
++        tab_tap_armed = false;
++    }
++    if (mouse_wheel_up() || mouse_wheel_down()) {
++        tab_tap_armed = false;
++    }
++}
++if (keyboard_check_released(vk_tab)) {
++    if (tab_tap_armed && !palette_open && !menu_blocks_mouse && !clip_blocks_mouse) {
++        _shift_tap = true;
++    }
++    tab_tap_armed = false;
++}
++
+ if (_shift_tap) {
+     var _hit = tile_raycast_nearest(_cx, _cy, _cz, _ray_x, _ray_y, _ray_z);
+ 
+diff --git a/scripts/MENU_system/MENU_system.gml b/scripts/MENU_system/MENU_system.gml
+index 4da4e4b..b271dac 100644
+--- a/scripts/MENU_system/MENU_system.gml
++++ b/scripts/MENU_system/MENU_system.gml
+@@ -698,3 +698,156 @@ function menu_draw()
+     draw_set_alpha(1);
+     gpu_set_tex_filter(tex_filter_on);
+ }
++
++// ============================================================
++//  SHORTCUT KEYS PANEL (F9 / Help > Shortcut keys)
++// ============================================================
++// Modal, in both editors. The list itself lives in the Create event
++// (shortcut_sections) so it is easy to keep in step with the code.
++
++/// @desc Open / close handling. Call in the Step event before anything that
++/// reads the keyboard or mouse; the caller exits the Step while it is open.
++function shortcuts_update()
++{
++    if (keyboard_check_pressed(vk_f9) || menu_action == "shortcuts")
++    {
++        shortcuts_open = !shortcuts_open;
++        return;
++    }
++
++    if (!shortcuts_open)
++    {
++        return;
++    }
++
++    if (keyboard_check_pressed(vk_escape))
++    {
++        shortcuts_open = false;
++        menu_esc_consumed = true;
++        return;
++    }
++
++    // A click anywhere that isn't the menu bar closes it
++    if (!menu_blocks_mouse)
++    {
++        if (mouse_check_button_pressed(mb_left) || mouse_check_button_pressed(mb_right))
++        {
++            shortcuts_open = false;
++        }
++    }
++}
++
++/// @desc Draw the panel. Call from Draw GUI (both editors), before menu_draw.
++function shortcuts_draw()
++{
++    if (!shortcuts_open)
++    {
++        return;
++    }
++
++    var _gw = display_get_gui_width();
++    var _gh = display_get_gui_height();
++
++    gpu_set_cullmode(cull_noculling);
++    gpu_set_tex_filter(true);
++    draw_set_font(font_pixeldown);
++    draw_set_halign(fa_left);
++    draw_set_valign(fa_top);
++
++    // Dim what's behind
++    draw_set_alpha(0.6);
++    draw_set_colour(c_black);
++    draw_rectangle(0, 0, _gw, _gh, false);
++    draw_set_alpha(1);
++
++    var _x1 = 40;
++    var _y1 = menu_bar_h + 24;
++    var _x2 = _gw - 40;
++    var _y2 = _gh - 30;
++
++    draw_set_colour(make_colour_rgb(30, 32, 42));
++    draw_rectangle(_x1, _y1, _x2, _y2, false);
++    draw_set_colour(make_colour_rgb(80, 84, 100));
++    draw_rectangle(_x1, _y1, _x2, _y2, true);
++
++    var _line = string_height("Ag") + 4;
++    var _pad = 22;
++
++    // Title
++    draw_set_colour(c_white);
++    draw_text(_x1 + _pad, _y1 + 14, "SHORTCUT KEYS");
++    draw_set_colour(make_colour_rgb(150, 155, 175));
++    var _hint = "F9, Esc or click to close";
++    draw_text(_x2 - _pad - string_width(_hint), _y1 + 14, _hint);
++
++    // Key column width: the widest key text anywhere
++    var _key_w = 0;
++    for (var _s = 0; _s < array_length(shortcut_sections); _s++)
++    {
++        var _groups = shortcut_sections[_s].groups;
++        for (var _g = 0; _g < array_length(_groups); _g++)
++        {
++            var _rows = _groups[_g].rows;
++            for (var _r = 0; _r < array_length(_rows); _r++)
++            {
++                _key_w = max(_key_w, string_width(_rows[_r][0]));
++            }
++        }
++    }
++    _key_w += 18;
++
++    // Flow the groups into columns; each section starts a fresh column
++    var _cols = 4;
++    var _col_w = floor((_x2 - _x1 - _pad * 2) / _cols);
++    var _top = _y1 + 14 + _line * 2;
++    var _bottom = _y2 - _pad;
++    var _col = 0;
++    var _cy = _top;
++
++    for (var _s = 0; _s < array_length(shortcut_sections); _s++)
++    {
++        var _sec = shortcut_sections[_s];
++
++        // New section: new column (unless we're still at the top of one)
++        if (_cy > _top)
++        {
++            _col += 1;
++            _cy = _top;
++        }
++
++        var _cx = _x1 + _pad + _col * _col_w;
++        draw_set_colour(make_colour_rgb(255, 210, 90));
++        draw_text(_cx, _cy, _sec.title);
++        _cy += _line + 6;
++
++        for (var _g = 0; _g < array_length(_sec.groups); _g++)
++        {
++            var _grp = _sec.groups[_g];
++            var _need = _line * (array_length(_grp.rows) + 1) + 10;
++
++            // Doesn't fit: next column
++            if (_cy + _need > _bottom && _cy > _top)
++            {
++                _col += 1;
++                _cy = _top;
++                _cx = _x1 + _pad + _col * _col_w;
++            }
++
++            draw_set_colour(make_colour_rgb(120, 170, 255));
++            draw_text(_cx, _cy, _grp.title);
++            _cy += _line;
++
++            for (var _r = 0; _r < array_length(_grp.rows); _r++)
++            {
++                draw_set_colour(c_white);
++                draw_text(_cx + 8, _cy, _grp.rows[_r][0]);
++                draw_set_colour(make_colour_rgb(185, 190, 205));
++                draw_text(_cx + 8 + _key_w, _cy, _grp.rows[_r][1]);
++                _cy += _line;
++            }
++            _cy += 10;
++        }
++    }
++
++    draw_set_colour(c_white);
++}
