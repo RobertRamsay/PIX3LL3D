@@ -457,6 +457,7 @@ menu_defs = [
         title: "Help", mode: "all",
         items: [
             { label: "Shortcut keys...", key: "F9",           act: "shortcuts", mode: "all" },
+            { label: "Guided tour",      key: "",             act: "tour_start", mode: "3d" },
             { label: "-",               key: "",             act: "",       mode: "all" },
             { label: "Place / replace", key: "LMB",          act: "", mode: "3d" },
             { label: "Remove",          key: "RMB / Del",    act: "", mode: "3d" },
@@ -593,6 +594,59 @@ shortcut_sections = [
                 ["Ctrl+Z / Ctrl+Y",  "Undo / redo"],
                 ["P",                "Close pixel editor"]
             ]}
+        ]
+    }
+];
+
+// --- GUIDED TOUR (Help > Guided tour; offered on first launch; see ABOUT_system) ---
+tut_active = false;       // the tour card is up
+tut_prompt = false;       // the first-launch question is up
+tut_dont_ask = false;     // "Don't ask again" was chosen
+tut_finished = false;     // every step done: showing the finish card
+tut_checklist = false;    // the card is showing the checklist
+tut_ch = 0;               // current chapter
+tut_st = 0;               // current step within it
+tut_time = 0;             // seconds spent in the tour
+tut_hover = "";           // card button under the mouse
+tut_row_hover = -1;       // checklist chapter row under the mouse
+tut_flash = 0;            // tick-box flash timer
+tut_toast = "";           // chapter-complete message
+tut_toast_timer = 0;
+tut_sparks = [];          // celebration particles
+tut_saved_path = "";      // user's scene path, put back when the tour ends
+
+// Each step finishes when tut_event(ev) has arrived `need` times while it is
+// the current step. `how` is what the card says; `key` is the pulsing badge.
+tut_chapters = [
+    {
+        title: "Getting around", medal: "Explorer",
+        steps: [
+            { id: "orbit", text: "Look around",       how: "Hold Alt and drag with the middle mouse button to orbit the camera.", key: "Alt + MMB drag", ev: "orbit", need: 25, count: 0, done: false },
+            { id: "pan",   text: "Slide the view",    how: "Drag with the middle mouse button (no Alt) to pan across the scene.", key: "MMB drag", ev: "pan", need: 25, count: 0, done: false },
+            { id: "zoom",  text: "Zoom in and out",   how: "Roll the mouse wheel a few notches either way.", key: "Wheel", ev: "zoom", need: 4, count: 0, done: false },
+            { id: "home",  text: "Back to the start", how: "Press Home to put the camera back where it began.", key: "Home", ev: "reset_view", need: 1, count: 0, done: false }
+        ]
+    },
+    {
+        title: "First tiles", medal: "Tile Layer",
+        steps: [
+            { id: "pal_open", text: "Open the tile palette", how: "Hold Space. The palette pops up under the mouse and stays while Space is held.", key: "Space (hold)", ev: "palette_open", need: 1, count: 0, done: false },
+            { id: "pal_pick", text: "Pick a tile",           how: "Keep holding Space and click any tile in the palette.", key: "Space + LMB", ev: "palette_pick", need: 1, count: 0, done: false },
+            { id: "place",    text: "Put it down",           how: "Let go of Space and click in the scene to place the tile.", key: "LMB", ev: "place", need: 1, count: 0, done: false },
+            { id: "paint",    text: "Paint a row",           how: "Hold the left button and drag across the grid to paint five more tiles.", key: "LMB drag", ev: "paint_drag", need: 5, count: 0, done: false },
+            { id: "erase",    text: "Take some away",        how: "Click or drag with the right button over tiles to remove them.", key: "RMB", ev: "erase", need: 1, count: 0, done: false },
+            { id: "delete",   text: "Delete just one",       how: "Point straight at a tile and press Delete. Only the tile under the cursor goes.", key: "Del", ev: "delete_tile", need: 1, count: 0, done: false }
+        ]
+    },
+    {
+        title: "The brush", medal: "Brush Handler",
+        steps: [
+            { id: "pal_block", text: "Grab a block",        how: "Hold Space and drag across the palette to pick a 2 x 2 block of tiles.", key: "Space + drag", ev: "palette_pick_block", need: 1, count: 0, done: false },
+            { id: "rotate",    text: "Turn it",             how: "Press R to rotate the brush a quarter turn.", key: "R", ev: "rotate_brush", need: 1, count: 0, done: false },
+            { id: "flip_x",    text: "Flip it",             how: "Press X to flip it left to right. (Over a placed tile, X flips that tile instead.)", key: "X", ev: "flip_x", need: 1, count: 0, done: false },
+            { id: "flip_y",    text: "Flip the other way",  how: "Press Y to flip it top to bottom.", key: "Y", ev: "flip_y", need: 1, count: 0, done: false },
+            { id: "stamp",     text: "Stamp the block",     how: "Click in the scene to place the whole block in one go.", key: "LMB", ev: "place", need: 1, count: 0, done: false },
+            { id: "alt_pick",  text: "Pick up from the scene", how: "Hold Alt and click a placed tile: it becomes your brush, turned and flipped the same way.", key: "Alt + LMB", ev: "alt_pick", need: 1, count: 0, done: false }
         ]
     }
 ];
@@ -768,3 +822,10 @@ pe_col_button = make_color_rgb(46, 49, 60);
 pe_col_check_a = make_color_rgb(90, 90, 96);
 pe_col_check_b = make_color_rgb(120, 120, 128);
 pe_col_tile_grid = make_color_rgb(255, 210, 90);
+
+// --- GUIDED TOUR: offer it on launch until it's done or declined ---
+tut_load();
+if (!tut_dont_ask && tut_totals().done < tut_totals().steps)
+{
+    tut_prompt = true;
+}

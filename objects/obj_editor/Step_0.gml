@@ -38,6 +38,13 @@ if (shortcuts_update())
     exit;
 }
 
+// --- GUIDED TOUR: first-launch question (modal) ---
+if (tut_prompt)
+{
+    tut_prompt_update();
+    exit;
+}
+
 // --- TILESET CELL SIZE (works in BOTH editors, so it sits above the pe branch) ---
 if (tile_msg_timer > 0)
 {
@@ -217,6 +224,13 @@ clip_strip_update();
 // Invisible-tile warning bar and its Clean up button (claims the mouse too)
 invisible_warn_update();
 
+// Guided tour card (claims the mouse over the card)
+tut_update();
+if (menu_action == "tour_start" && !tut_active)
+{
+    tut_start();
+}
+
 if ((keyboard_check_pressed(ord("P")) && !keyboard_check(vk_control)) || menu_action == "pe_toggle")
 {
     pe_open_editor();
@@ -278,6 +292,9 @@ if (_orbit_held) {
         cam_yaw += _dx * 0.2;
         cam_pitch -= _dy * 0.2;
         cam_pitch = clamp(cam_pitch, -89, 89);
+        if (_dx != 0 || _dy != 0) {
+            tut_event("orbit");
+        }
     }
 
     cam_dragging = true;
@@ -359,6 +376,7 @@ if (mouse_check_button_pressed(mb_middle) && !keyboard_check(vk_alt)) {
 }
 
 if (mouse_check_button(mb_middle) && cam_panning && !keyboard_check(vk_alt)) {
+    tut_event("pan");
     // Each frame, find where the mouse ray hits Z=0 now
     var _win_w = window_get_width();
     var _win_h = window_get_height();
@@ -438,9 +456,11 @@ if (mouse_check_button_released(mb_middle)) {
 // --- MOUSE WHEEL ZOOM ---
 if (mouse_wheel_up()) {
     cam_dist -= 1;
+    tut_event("zoom");
 }
 if (mouse_wheel_down()) {
     cam_dist += 1;
+    tut_event("zoom");
 }
 cam_dist = clamp(cam_dist, 2, 100);
 
@@ -469,6 +489,7 @@ if (keyboard_check_pressed(ord("G")) || menu_action == "grid") {
 
 // --- RESET VIEW (Home) ---
 if (keyboard_check_pressed(vk_home) || menu_action == "reset_view") {
+    tut_event("reset_view");
     cam_dist = cam_dist_default;
     cam_pitch = cam_pitch_default;
     cam_yaw = cam_yaw_default;
@@ -684,6 +705,7 @@ brush_nudge_update();
 palette_phase += 0.02; // gradient animation speed (tunable)
 
 if (keyboard_check_pressed(vk_space)) {
+    tut_event("palette_open");
     var _count = sprite_get_number(global.tile_sprite);
     var _rows = max(1, ceil(_count / palette_cols));
     var _gw = display_get_gui_width();
@@ -781,6 +803,11 @@ if (palette_open) {
         // pressing 0). Plane depth is kept.
         grid_offset = 0;
         clip_held = -1; // back to single tiles
+
+        tut_event("palette_pick");
+        if (brush_cols >= 2 && brush_rows >= 2) {
+            tut_event("palette_pick_block");
+        }
         palette_drag_start = -1;
 		brush_nudge_reset() // also reset the nudge
     }
@@ -1018,6 +1045,7 @@ if (mouse_check_button_pressed(mb_left) && keyboard_check(vk_alt) && !palette_op
         ghost_flip_x = _pt.flip_x;
         ghost_flip_y = _pt.flip_y;
         clip_held = -1; // back to single tiles
+        tut_event("alt_pick");
 
         tile_msg = "Picked tile " + string(_pt.sub);
         tile_msg_timer = room_speed * 2;
@@ -1209,7 +1237,9 @@ if (paint_active && (palette_open || menu_blocks_mouse || clip_blocks_mouse || k
 }
 
 if (paint_active && _place_key != paint_last_key) {
+    var _first_stamp = (paint_last_key == "");
     paint_last_key = _place_key;
+    var _stamp_written = 0;
 
     var _stamp_skipped = 0;
 
@@ -1288,6 +1318,7 @@ if (paint_active && _place_key != paint_last_key) {
 
             var _bkey = tile_key(_tx, _ty, _tz, active_plane, ghost_off_x, ghost_off_y, ghost_off_z);
 
+            _stamp_written += 1;
             variable_struct_set(global.world_tiles, _bkey, {
                 x: _tx,
                 y: _ty,
@@ -1311,6 +1342,15 @@ if (paint_active && _place_key != paint_last_key) {
     if (_stamp_skipped > 0) {
         tile_msg = "That tile is empty (fully transparent) - pick one with a graphic";
         tile_msg_timer = room_speed * 2;
+    }
+
+    if (_stamp_written > 0) {
+        if (_first_stamp) {
+            tut_event("place");
+        }
+        else {
+            tut_event("paint_drag");
+        }
     }
 }
 
@@ -1343,6 +1383,7 @@ if (keyboard_check_pressed(vk_delete) || keyboard_check_pressed(vk_backspace)) {
         if (_del.found) {
             undo_push_snapshot();
             struct_remove(global.world_tiles, _del.key);
+            tut_event("delete_tile");
             tile_msg = "Tile removed";
             tile_msg_timer = room_speed * 2;
         }
@@ -1382,6 +1423,7 @@ if (_erase_now) {
 
             if (variable_struct_exists(global.world_tiles, _dkey)) {
                 struct_remove(global.world_tiles, _dkey);
+                tut_event("erase");
             }
         }
     }
@@ -1414,6 +1456,7 @@ else if (keyboard_check_pressed(ord("R")) || menu_action == "rotate") {
     brush_rot = (brush_rot + 1) mod 4;
     // Each tile's own texture also turns 90°
     ghost_rot = (ghost_rot + 1) mod 4;
+    tut_event("rotate_brush");
 }
 
 // X mirrors a held cluster (along whichever axis reads left-right on screen).
@@ -1424,6 +1467,7 @@ if (keyboard_check_pressed(ord("X")) && clip_held >= 0) {
     tile_msg_timer = room_speed * 2;
 }
 else if (keyboard_check_pressed(ord("X")) || menu_action == "flip_x") {
+    tut_event("flip_x");
     if (variable_struct_exists(global.world_tiles, _place_key) && menu_action != "flip_x") {
         var _hovered = variable_struct_get(global.world_tiles, _place_key);
         _hovered.flip_x = !_hovered.flip_x;
@@ -1434,6 +1478,7 @@ else if (keyboard_check_pressed(ord("X")) || menu_action == "flip_x") {
 
 // Y flips texture vertically: hovered tile or preview (not while Ctrl held — that's redo)
 if ((keyboard_check_pressed(ord("Y")) && !keyboard_check(vk_control)) || menu_action == "flip_y") {
+    tut_event("flip_y");
     if (variable_struct_exists(global.world_tiles, _place_key) && menu_action != "flip_y") {
         var _hovered = variable_struct_get(global.world_tiles, _place_key);
         _hovered.flip_y = !_hovered.flip_y;

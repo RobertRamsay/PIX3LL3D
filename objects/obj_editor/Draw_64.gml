@@ -244,6 +244,10 @@ about_draw();
 // --- PRO PANEL (modal, demo builds only) ---
 demo_draw();
 
+// --- GUIDED TOUR (card, sparkles, chapter toast, first-launch question) ---
+tut_draw();
+tut_prompt_draw();
+
 // --- SHORTCUT KEYS PANEL (modal) ---
 shortcuts_draw();
 
