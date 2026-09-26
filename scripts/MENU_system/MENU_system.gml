@@ -244,7 +244,7 @@ function bg_ui_draw()
     draw_rectangle(_px1, _py1, _px2, _py2, true);
 
     gpu_set_tex_filter(true);
-    draw_set_font(-1);
+    draw_set_font(font_pixeldown);
     draw_set_valign(fa_middle);
     draw_set_halign(fa_left);
 
@@ -313,7 +313,7 @@ function menu_update()
         menu_mode = "pe";
     }
 
-    draw_set_font(-1);
+    draw_set_font(font_pixeldown);
 
     // --- Lay out the visible titles along the bar ---
     menu_vis = [];
@@ -563,7 +563,7 @@ function menu_draw()
 {
     var _gw = display_get_gui_width();
 
-    draw_set_font(-1);
+    draw_set_font(font_pixeldown);
     gpu_set_tex_filter(true);
     draw_set_valign(fa_middle);
     draw_set_halign(fa_left);

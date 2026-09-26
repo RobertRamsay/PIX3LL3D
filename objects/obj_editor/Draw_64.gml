@@ -21,7 +21,7 @@ if (pe_open)
 gpu_set_cullmode(cull_noculling);
 var _hud_x = 20;
 var _hud_y = 20 + menu_bar_h; // sits below the menu bar
-draw_set_font(-1);
+draw_set_font(font_pixeldown);
 draw_set_halign(fa_left);
 draw_set_valign(fa_top);
 

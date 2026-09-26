@@ -349,7 +349,7 @@ function tileset_msg_draw()
     var _gh = display_get_gui_height();
 
     gpu_set_tex_filter(true);
-    draw_set_font(-1);
+    draw_set_font(font_pixeldown);
     draw_set_halign(fa_center);
     draw_set_valign(fa_middle);
 

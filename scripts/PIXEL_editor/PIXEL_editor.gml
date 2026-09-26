@@ -1243,7 +1243,7 @@ function pe_tool_label(_tool)
 /// @desc Recompute panel rectangles and on-screen buttons for this frame.
 function pe_layout()
 {
-    draw_set_font(-1);
+    draw_set_font(font_pixeldown);
     var _gw = display_get_gui_width();
     var _gh = display_get_gui_height();
 
@@ -2145,7 +2145,7 @@ function pe_draw()
 
     // ==== Panels (drawn over the canvas, so they also clip its edges) ====
     gpu_set_tex_filter(true);
-    draw_set_font(-1);
+    draw_set_font(font_pixeldown);
     draw_set_valign(fa_middle);
 
     draw_set_colour(pe_col_panel);

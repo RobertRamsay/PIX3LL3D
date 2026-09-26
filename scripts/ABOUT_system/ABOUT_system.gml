@@ -313,7 +313,7 @@ function about_banner_draw()
 
     gpu_set_cullmode(cull_noculling);
     gpu_set_tex_filter(true);
-    draw_set_font(-1);
+    draw_set_font(font_pixeldown);
     draw_set_halign(fa_left);
     draw_set_valign(fa_middle);
 
@@ -573,7 +573,7 @@ function about_draw()
 
     gpu_set_cullmode(cull_noculling);
     gpu_set_tex_filter(true);
-    draw_set_font(-1);
+    draw_set_font(font_pixeldown);
     draw_set_halign(fa_left);
     draw_set_valign(fa_top);
 

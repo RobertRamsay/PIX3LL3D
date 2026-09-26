@@ -1168,7 +1168,7 @@ function clip_strip_draw()
         return;
     }
 
-    draw_set_font(-1);
+    draw_set_font(font_pixeldown);
     draw_set_halign(fa_left);
     draw_set_valign(fa_top);
 
@@ -1739,7 +1739,7 @@ function wire_legend_draw()
     var _x = 16;
     var _y = display_get_gui_height() - 78;
 
-    draw_set_font(-1);
+    draw_set_font(font_pixeldown);
     draw_set_halign(fa_left);
     draw_set_valign(fa_top);
 
@@ -1818,7 +1818,7 @@ function world_remove_invisible()
 /// @desc Geometry of the warning bar (GUI pixels), bottom centre.
 function invisible_warn_rect()
 {
-    draw_set_font(-1);
+    draw_set_font(font_pixeldown);
     var _msg = invisible_warn_text();
     var _btn_w = string_width("Clean up") + 28;
     var _w = string_width(_msg) + 24 + _btn_w + 16;
@@ -1899,7 +1899,7 @@ function invisible_warn_draw()
 
     var _r = invisible_warn_rect();
 
-    draw_set_font(-1);
+    draw_set_font(font_pixeldown);
     draw_set_valign(fa_middle);
 
     draw_set_alpha(0.9);
